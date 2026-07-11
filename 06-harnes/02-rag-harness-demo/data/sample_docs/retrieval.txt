@@ -1,0 +1,13 @@
+Retrieval（检索）负责从索引中找到与用户问题最相关的文档片段。
+
+本 demo 使用 TF-IDF + 余弦相似度，优点是无须 GPU、依赖少、便于课堂讲解倒排索引思想。
+局限是语义匹配能力弱于向量嵌入（embedding），例如「汽车」与「车辆」可能关联较弱。
+
+生产级 RAG 常见检索方案：
+- 稠密向量检索（Dense Retrieval）：用 embedding 模型编码 query 和 chunk
+- 混合检索（Hybrid）：关键词 + 向量结果融合（如 BM25 + cosine）
+- 重排序（Rerank）：先用召回模型取 top-N，再用 cross-encoder 精排
+
+检索参数 top_k 影响回答质量：过小可能漏掉关键信息，过大则引入噪声并增加 LLM 成本。
+
+评估指标：Recall@k、MRR、人工标注的相关性分数。

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Production-grade Agentic RAG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&family=Noto+Sans+SC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{--paper:#FAF9F5;--ink:#10162F;--red:#DC2626;--blue:#2563EB;--green:#16A34A;--amber:#D97706;--purple:#7C3AED;--line:#10162F;--shadow:8px 8px 0 #10162F;--shadow-sm:5px 5px 0 #10162F}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:var(--paper);color:var(--ink);font-family:"DM Sans","Noto Sans SC",system-ui,sans-serif;overflow:hidden}
+  .deck{height:100vh;width:100vw;position:relative}
+  .slide{position:absolute;inset:0;padding:50px 68px 60px;display:none;flex-direction:column;opacity:0}
+  .slide.active{display:flex;opacity:1}
+  .kicker{display:inline-block;background:var(--ink);color:var(--paper);font-weight:900;font-size:13px;letter-spacing:.14em;text-transform:uppercase;padding:6px 14px;margin-bottom:13px;align-self:flex-start}
+  .kicker.red{background:var(--red)}
+  h1{font-weight:900;font-size:55px;line-height:1.02;letter-spacing:-.01em}
+  h1 .red{color:var(--red)}
+  h2{font-weight:900;font-size:36px;line-height:1.05;margin-bottom:6px}
+  h2 .red{color:var(--red)}
+  .sub{font-size:17px;font-weight:500;color:#41486a;margin-top:11px;max-width:80ch}
+  .pagenum{position:absolute;right:68px;bottom:20px;font-weight:900;font-size:13px;letter-spacing:.1em;color:#9aa0b8}
+  .tag-row{position:absolute;left:68px;bottom:20px;font-weight:700;font-size:12px;letter-spacing:.08em;color:#9aa0b8;text-transform:uppercase}
+  .progress{position:fixed;top:0;left:0;height:6px;background:var(--red);z-index:50;transition:width .25s}
+  .dots{position:fixed;right:18px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:7px;z-index:50}
+  .dot{width:10px;height:10px;border:2px solid var(--ink);background:var(--paper);cursor:pointer}
+  .dot.on{background:var(--red);border-color:var(--red)}
+  .cards{display:grid;gap:18px;margin-top:22px}
+  .c2{grid-template-columns:repeat(2,1fr)}.c3{grid-template-columns:repeat(3,1fr)}.c4{grid-template-columns:repeat(4,1fr)}
+  .card{border:3px solid var(--line);background:#fff;box-shadow:var(--shadow-sm);padding:19px}
+  .card .h{font-weight:900;font-size:19px;margin-bottom:6px}
+  .card .en{font-weight:700;font-size:12px;letter-spacing:.06em;color:var(--red);text-transform:uppercase;margin-bottom:9px}
+  .card p{font-size:14.5px;line-height:1.46;color:#2c3252}
+  .card.ft{border-top:10px solid var(--blue)}.card.fx{border-top:10px solid var(--amber)}.card.ct{border-top:10px solid var(--red)}.card.gr{border-top:10px solid var(--green)}.card.pu{border-top:10px solid var(--purple)}
+  .card.sm .h{font-size:16.5px}.card.sm p{font-size:13.5px}
+  table{border-collapse:collapse;width:100%;margin-top:18px;background:#fff;box-shadow:var(--shadow-sm)}
+  th,td{border:2.5px solid var(--ink);padding:10px 14px;text-align:left;vertical-align:top}
+  th{background:var(--ink);color:var(--paper);font-weight:900;font-size:14.5px}
+  td{font-size:14.5px;line-height:1.38;font-weight:500}
+  td.row-h{background:#EDEBE3;font-weight:900;width:120px}
+  .col-a{background:#FDECEC}.col-b{background:#EAF7EE}
+  th.col-a{background:var(--red)}th.col-b{background:var(--green)}
+  .yes{color:var(--green);font-weight:900}.no{color:var(--red);font-weight:900}.mid{color:var(--amber);font-weight:900}
+  table.tight th,table.tight td{padding:8px 12px;font-size:13.5px}
+  ul.clean{margin-top:16px;list-style:none;display:flex;flex-direction:column;gap:10px}
+  ul.clean li{font-size:16px;line-height:1.42;padding-left:30px;position:relative;font-weight:500}
+  ul.clean li::before{content:"▸";position:absolute;left:0;color:var(--red);font-weight:900;font-size:20px;top:-2px}
+  ul.clean li b{font-weight:900}
+  ul.clean.sm li{font-size:14.5px;gap:8px}
+  .note{margin-top:auto;background:#fff;border:2.5px solid var(--ink);border-left:8px solid var(--red);padding:12px 17px;font-size:14.5px;font-weight:600;box-shadow:var(--shadow-sm)}
+  .note.green{border-left-color:var(--green)}.note.blue{border-left-color:var(--blue)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:20px}
+  .hint{position:fixed;left:50%;bottom:8px;transform:translateX(-50%);font-size:12px;color:#b3b8cc;font-weight:600;z-index:40}
+  .pipe{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:22px}
+  .node{border:3px solid var(--ink);background:#fff;box-shadow:var(--shadow-sm);padding:12px 16px;font-weight:900;font-size:15px}
+  .node.q{background:#EAF0FF}.node.r{background:#FFF4E5}.node.g{background:#EAF7EE}.node.brain{background:var(--ink);color:#fff}
+  .arrow{font-weight:900;font-size:20px;color:var(--red)}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:22px}
+  .stat{border:3px solid var(--ink);background:#fff;box-shadow:var(--shadow-sm);padding:20px}
+  .stat .big{font-weight:900;font-size:38px;color:var(--red);line-height:1.02}
+  .stat .lbl{font-weight:700;font-size:14.5px;margin-top:8px}
+  .stat .dsc{font-size:13px;color:#41486a;margin-top:6px;line-height:1.4}
+  .code{margin-top:14px;background:var(--ink);color:#E7EAF6;border:3px solid var(--ink);box-shadow:var(--shadow-sm);padding:15px 19px;font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.5;overflow:auto}
+  .code.sm{font-size:12px;line-height:1.46}
+  .code .cm{color:#7f88ad}.code .kw{color:#FF9DA4;font-weight:700}.code .fn{color:#FFD479}.code .st{color:#9DE6A0}.code .rd{color:#FF8585}.code .bl{color:#8FC4FF}
+  .slide.demo{background:var(--ink);color:var(--paper)}
+  .slide.demo h2{color:#fff;font-size:40px}.slide.demo .sub{color:#b9c0de}
+  .slide.demo .kicker{background:var(--red);color:#fff}.slide.demo .pagenum,.slide.demo .tag-row{color:#5b638a}
+  .clapper{font-size:48px;line-height:1;margin-bottom:4px}
+  .dgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:20px}
+  .dcard{border:3px solid #fff;background:#1b2447;padding:15px 17px}
+  .dcard .h{font-weight:900;font-size:15.5px;color:#fff;margin-bottom:6px}
+  .dcard p{font-size:13px;line-height:1.44;color:#c3c9e6}
+  .dnote{margin-top:auto;background:#1b2447;border:2.5px solid #fff;border-left:8px solid var(--red);padding:12px 17px;font-size:14px;font-weight:600;color:#E7EAF6}
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<div class="dots" id="dots"></div>
+<div class="deck" id="deck">
+
+  <!-- 1 cover -->
+  <section class="slide active">
+    <span class="kicker red">直播课 · Agent 工程 · 2 小时</span>
+    <h1>Production-grade<br><span class="red">Agentic RAG</span></h1>
+    <p class="sub">Naive RAG 只会"检索→拼 prompt",问题稍微绕一点就答非所问。Agentic RAG 让 LLM 自己决定<b>要不要搜、搜几次、搜哪个库、检索够不够</b>——这才是生产环境跑得通的 RAG。这节我们在 ISA 项目上加装 Agent 路由层 + LangSmith 监控。</p>
+    <div class="pipe" style="margin-top:34px">
+      <span class="node q">用户问题</span><span class="arrow">→</span>
+      <span class="node brain">🧠 Agent 决策</span><span class="arrow">→</span>
+      <span class="node r">检索?几次?哪个库?</span><span class="arrow">→</span>
+      <span class="node g">可信回答</span>
+    </div>
+    <span class="tag-row">在 ISA 项目上实战 · 含完整 Trace</span>
+    <span class="pagenum">01</span>
+  </section>
+  <!-- 2 objectives -->
+  <section class="slide">
+    <span class="kicker">学习目标</span>
+    <h2>这节课结束后,你能……</h2>
+    <div class="cards c2">
+      <div class="card ft"><div class="h">① 区分架构差异</div><p>说清 <b>Naive RAG vs Agentic RAG</b> 的架构区别,知道什么时候该升级、什么时候不必。</p></div>
+      <div class="card fx"><div class="h">② 实现自主检索</div><p>做一个 Agent 能<b>自主决定"是否检索、检索什么、检索几次"</b>的 RAG 系统。</p></div>
+      <div class="card ct"><div class="h">③ 全链路追踪</div><p>用 <b>LangSmith</b> 追踪 Agentic RAG 的完整调用链,看清每一步。</p></div>
+      <div class="card gr"><div class="h">④ 设计降级策略</div><p>为 Agentic RAG 设计<b>错误恢复和降级</b>:检索失败怎么办、不确定怎么办。</p></div>
+    </div>
+    <div class="note blue">🎯 主线:在前几期的 <b>ISA 项目</b>上,把 Naive RAG 升级成 Agentic RAG,当场看 Agent 在多个向量库间决策、检索失败 fallback,最后跑出完整 trace。</div>
+    <span class="pagenum">02</span>
+  </section>
+
+  <!-- 3 naive recap -->
+  <section class="slide">
+    <span class="kicker">回顾</span>
+    <h2>你现在的系统:Naive RAG</h2>
+    <p class="sub">Phase 2 你构建的 RAG 是 "Naive RAG"——每次用户提问都走<b>同样的固定流程</b>,一条道走到黑:</p>
+    <div class="pipe">
+      <span class="node q">用户问题</span><span class="arrow">→</span>
+      <span class="node">Embedding</span><span class="arrow">→</span>
+      <span class="node r">向量搜索 top-5</span><span class="arrow">→</span>
+      <span class="node">拼入 Prompt</span><span class="arrow">→</span>
+      <span class="node g">LLM 生成回答</span>
+    </div>
+    <div class="note">📌 特点:<b>无脑、固定、可预测</b>。查询模式单一时(比如只查 FAQ)它够用;但一旦问题变复杂,这条直线就撑不住了——见下一页。</div>
+    <span class="pagenum">03</span>
+  </section>
+
+  <!-- 4 naive limits -->
+  <section class="slide">
+    <span class="kicker">Naive RAG 的局限</span>
+    <h2>固定流程的三个硬伤</h2>
+    <div class="cards c3">
+      <div class="card ct"><div class="h">① 不需要也检索</div><p>用户说"你好",系统也去向量库搜一遍——<b>浪费 token 和时间</b>。</p></div>
+      <div class="card ct"><div class="h">② 一次不够没法再搜</div><p>问"对比 RAG 和 Fine-Tuning 优缺点",一次 top-5 可能只覆盖 RAG,<b>另一半文档没搜到</b>。</p></div>
+      <div class="card ct"><div class="h">③ 不好也无法自我修正</div><p>搜到的文档不相关,LLM 只能<b>硬着头皮编答案</b>,越编越离谱。</p></div>
+    </div>
+    <div class="note">🔍 根因:<b>Naive RAG 没有"判断力"</b>——它不会想"这题要不要搜""搜的够不够""搜错了怎么办"。缺的正是一个会决策的大脑。</div>
+    <span class="pagenum">04</span>
+  </section>
+
+  <!-- 5 agentic concept -->
+  <section class="slide">
+    <span class="kicker">Agentic RAG</span>
+    <h2>= 给 RAG 加一个"大脑"</h2>
+    <p class="sub">在 RAG 前面加一个 <b>Agent 层</b>,让它自主决策:要不要检索、检索什么、检索几次、结果够不够、要不要换个库再搜。</p>
+    <div class="pipe">
+      <span class="node q">用户问题</span><span class="arrow">→</span>
+      <span class="node brain">🧠 Agent</span>
+    </div>
+    <ul class="clean sm" style="margin-top:16px">
+      <li><b>是否检索?</b> 简单寒暄直接答,复杂问题才动向量库。</li>
+      <li><b>检索什么?</b> 可以改写 query、拆成多个子问题分别搜。</li>
+      <li><b>检索几次?</b> 一次不够就补搜,换库再搜,直到信息够。</li>
+      <li><b>够不够?</b> 检索结果不足就承认"没找到",不编造。</li>
+    </ul>
+    <div class="note green">🧠 一句话:<b>Agentic RAG = Agent + RAG</b>。把"固定流水线"换成"会临场决策的助手"。</div>
+    <span class="pagenum">05</span>
+  </section>
+
+  <!-- 6 comparison table -->
+  <section class="slide">
+    <span class="kicker">全维度对照</span>
+    <h2>Naive vs Agentic:差在哪</h2>
+    <table class="tight">
+      <tr><th style="width:120px">维度</th><th class="col-a">Naive RAG</th><th class="col-b">Agentic RAG</th></tr>
+      <tr><td class="row-h">检索时机</td><td class="col-a">每次都检索</td><td class="col-b">Agent 判断是否需要检索</td></tr>
+      <tr><td class="row-h">检索策略</td><td class="col-a">固定 query、固定 top-k</td><td class="col-b">可改写 query、调 top-k、多次检索</td></tr>
+      <tr><td class="row-h">回答策略</td><td class="col-a">一次生成</td><td class="col-b">可验证回答、不足时补充检索</td></tr>
+      <tr><td class="row-h">工具</td><td class="col-a">只有向量搜索</td><td class="col-b">向量 + 网页 + SQL + 计算器</td></tr>
+      <tr><td class="row-h">错误处理</td><td class="col-a"><span class="no">无</span></td><td class="col-b">失败 fallback、不确定拒答</td></tr>
+    </table>
+    <div class="note blue">⚖️ 本质:Naive 是<b>写死的流水线</b>,Agentic 是<b>带判断力的决策循环</b>。多一个"大脑",就多了应对复杂查询的能力。</div>
+    <span class="pagenum">06</span>
+  </section>
+
+  <!-- 7 when to upgrade -->
+  <section class="slide">
+    <span class="kicker">该不该升级</span>
+    <h2>别盲目上 Agentic RAG</h2>
+    <p class="sub">Agentic 更强,但也更慢、更贵、更难调试。升不升级,看你的<b>查询模式有多样</b>。</p>
+    <div class="two">
+      <div class="card ct">
+        <div class="h">✅ 值得升级</div>
+        <ul class="clean sm" style="margin-top:10px">
+          <li>查询模式<b>多样</b>:有时要文档、有时要搜网页、有时不用检索</li>
+          <li>问题常需<b>多步 / 多库</b>组合信息</li>
+          <li>对回答质量、可信度要求高</li>
+        </ul>
+      </div>
+      <div class="card gr">
+        <div class="h">❌ 没必要(Naive 就够)</div>
+        <ul class="clean sm" style="margin-top:10px">
+          <li>查询模式<b>单一</b>:比如只查 FAQ</li>
+          <li>对延迟/成本极敏感</li>
+          <li>问题都能一次 top-k 覆盖</li>
+        </ul>
+      </div>
+    </div>
+    <div class="note">📌 判断口诀:<b>查询模式越多样,Agentic 的价值越大;模式越单一,越该省心用 Naive。</b></div>
+    <span class="pagenum">07</span>
+  </section>
+
+  <!-- 8 architecture -->
+  <section class="slide">
+    <span class="kicker">实现架构</span>
+    <h2>Agent 决策层 + 多工具</h2>
+    <p class="sub">核心是一个决策循环:Agent 拿到问题,在一堆工具里自主选择、多轮调用,信息够了才回答。</p>
+    <div class="cards c4">
+      <div class="card ft sm"><div class="h">🧠 Agent 决策层</div><p>判断用不用工具、用哪个、够不够,最多 N 轮。</p></div>
+      <div class="card fx sm"><div class="h">🔧 工具箱</div><p>search_docs / search_web / SQL / calculator。</p></div>
+      <div class="card gr sm"><div class="h">📚 多向量库</div><p>不同知识域各一个库,Agent 决定搜哪个。</p></div>
+      <div class="card pu sm"><div class="h">📊 LangSmith</div><p>全程追踪每轮决策、检索、延迟与 token。</p></div>
+    </div>
+    <div class="note green">🏗 记住这个结构:<b>一个大脑 + 一个工具箱 + 多个知识库 + 一路留痕</b>。后面所有代码都在填充这四块。</div>
+    <span class="pagenum">08</span>
+  </section>
+  <!-- 9 implementation code -->
+  <section class="slide">
+    <span class="kicker">实现 · 决策循环</span>
+    <h2>核心就是一个带工具的循环</h2>
+    <div class="code sm"><span class="kw">def</span> <span class="fn">agentic_rag</span>(question):
+    tools = [search_docs, search_web, calculator]   <span class="cm"># Agent 的三个工具</span>
+    messages = [{<span class="st">"role"</span>:<span class="st">"system"</span>, <span class="st">"content"</span>: SYSTEM_PROMPT},
+                {<span class="st">"role"</span>:<span class="st">"user"</span>, <span class="st">"content"</span>: question}]
+    <span class="kw">for</span> _ <span class="kw">in</span> range(<span class="rd">5</span>):                        <span class="cm"># 最多 5 轮决策(停止条件)</span>
+        response = llm(messages, tools=tools)
+        <span class="kw">if</span> response.tool_calls:               <span class="cm"># Agent 决定调工具</span>
+            <span class="kw">for</span> call <span class="kw">in</span> response.tool_calls:
+                result = execute(call)
+                messages.append(tool_result(call.id, result))
+        <span class="kw">else</span>:
+            <span class="kw">return</span> response.content            <span class="cm"># 不需更多检索 → 直接回答</span>
+    <span class="kw">return</span> <span class="st">"无法回答,请换个问题试试"</span>          <span class="cm"># 触发上限 → 降级</span></div>
+    <div class="note">🔁 看点:<b>有 tool_calls 就执行并回填,没有就直接回答</b>。Agent 自己决定循环几轮——简单问题 1 轮,复杂问题多轮。</div>
+    <span class="pagenum">09</span>
+  </section>
+
+  <!-- 10 routing system prompt -->
+  <section class="slide">
+    <span class="kicker">Agent 的路由决策</span>
+    <h2>System Prompt 就是它的"行动纲领"</h2>
+    <p class="sub">Agentic RAG 的灵魂在 System Prompt——明确告诉 Agent 什么时候用什么工具:</p>
+    <div class="code sm">你是一个知识助手。根据用户问题,选择合适的策略:
+
+<span class="bl">1.</span> 可以直接回答(如"你好""谢谢")     → 直接回答,<span class="rd">不调用工具</span>
+<span class="bl">2.</span> 需要查找内部文档                  → 调用 <span class="fn">search_docs</span>
+<span class="bl">3.</span> 内部文档不够                      → 补充调用 <span class="fn">search_web</span>
+<span class="bl">4.</span> 需要计算                          → 调用 <span class="fn">calculator</span>
+<span class="bl">5.</span> 检索内容无法回答                  → 说"我在文档中没有找到相关信息"
+
+<span class="rd">重要:不要编造信息。回答必须基于检索到的内容。</span></div>
+    <div class="note blue">🧭 路由质量 = 提示词质量。<b>把"何时用/何时不用/找不到怎么说"写清楚</b>,Agent 才不会乱搜、瞎编。这是本节最该反复打磨的一段。</div>
+    <span class="pagenum">10</span>
+  </section>
+
+  <!-- 11 toolbox -->
+  <section class="slide">
+    <span class="kicker">工具箱</span>
+    <h2>从"只有向量搜索"到一整套</h2>
+    <div class="cards c4">
+      <div class="card ft sm"><div class="h">search_docs</div><div class="en">向量搜索</div><p>检索内部文档,Agentic RAG 的主力工具。</p></div>
+      <div class="card fx sm"><div class="h">search_web</div><div class="en">网页搜索</div><p>内部文档不够时补充,覆盖最新/外部信息。</p></div>
+      <div class="card gr sm"><div class="h">SQL 查询</div><div class="en">结构化数据</div><p>精确数字、报表类问题走数据库而非向量。</p></div>
+      <div class="card pu sm"><div class="h">calculator</div><div class="en">数值计算</div><p>百分比、汇总等,别让 LLM 硬算。</p></div>
+    </div>
+    <div class="note">🔧 工具越多,Agent 越能"对症下药"——但每个工具都要单一职责、结构化返回、有清晰 description,否则 Agent 会选错。</div>
+    <span class="pagenum">11</span>
+  </section>
+
+  <!-- 12 multi-index routing -->
+  <section class="slide">
+    <span class="kicker">进阶 · 多库路由</span>
+    <h2>三个向量库,搜哪个?</h2>
+    <p class="sub">生产里往往不止一个向量库:产品文档一个、政策合规一个、历史工单一个。Agent 要先判断"这题属于哪个域",再去对应的库搜。</p>
+    <div class="cards c3">
+      <div class="card ft"><div class="h">按知识域分库</div><p>产品 / 政策 / 工单各一个库,互不污染,检索更准。</p></div>
+      <div class="card fx"><div class="h">Agent 先分类再路由</div><p>先判断问题归属,再只搜相关库;跨域问题就搜多个再合并。</p></div>
+      <div class="card gr"><div class="h">合并 & 去重</div><p>多库结果按相关性得分合并、去重,再交给 LLM 生成。</p></div>
+    </div>
+    <div class="note green">📚 这正是本节现场演示的重头戏:<b>看 Agent 怎么在三个向量库之间做决策</b>——该搜哪个、要不要跨库、结果怎么合。</div>
+    <span class="pagenum">12</span>
+  </section>
+
+  <!-- 13 query rewrite -->
+  <section class="slide">
+    <span class="kicker">进阶 · 检索自我修正</span>
+    <h2>一次搜不好,就改写再搜</h2>
+    <div class="two">
+      <div class="card ct">
+        <div class="h">问题:一次检索覆盖不全</div>
+        <ul class="clean sm" style="margin-top:10px">
+          <li>"对比 A 和 B" 一次 top-5 常只搜到一边</li>
+          <li>用户用词和文档用词对不上</li>
+          <li>问题太笼统,搜出来一堆噪声</li>
+        </ul>
+      </div>
+      <div class="card gr">
+        <div class="h">Agent 的自我修正</div>
+        <ul class="clean sm" style="margin-top:10px">
+          <li><b>拆子问题:</b>"搜 A" + "搜 B" 分别检索</li>
+          <li><b>改写 query:</b>换更贴文档的措辞重搜</li>
+          <li><b>多次检索:</b>结果不足就补搜(限重试次数)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="note">💡 关键:改写/补搜要有<b>次数上限</b>(如最多 2 次),否则一道题能把 Agent 卡在检索循环里,又慢又烧钱。</div>
+    <span class="pagenum">13</span>
+  </section>
+
+  <!-- 14 error recovery -->
+  <section class="slide">
+    <span class="kicker">错误恢复 & 降级</span>
+    <h2>检索失败,怎么优雅收场</h2>
+    <table class="tight">
+      <tr><th style="width:210px">故障场景</th><th>恢复 / 降级策略</th></tr>
+      <tr><td class="row-h">检索结果不相关</td><td>Agent <b>改写 query 重新搜索</b>(最多重试 2 次)</td></tr>
+      <tr><td class="row-h">检索服务超时</td><td>降级到<b>直接用 LLM 回答</b>,并标注"未经文档验证"</td></tr>
+      <tr><td class="row-h">回答不确定 / 信息不足</td><td>明确<b>拒答</b>:"文档中没有足够信息回答这个问题"</td></tr>
+    </table>
+    <div class="note">🛟 一条原则:<b>宁可承认"没找到",也不要编造。</b> 拒答不是失败,乱编才是——尤其在生产环境,可信度比"看起来什么都会答"重要得多。</div>
+    <span class="pagenum">14</span>
+  </section>
+
+  <!-- 15 langsmith -->
+  <section class="slide">
+    <span class="kicker">可观测性 · LangSmith</span>
+    <h2>复杂调用链,靠 Trace 看清</h2>
+    <p class="sub">Agentic RAG 的调用链比 Naive 复杂得多。LangSmith Trace 让你把黑盒变透明:</p>
+    <ul class="clean sm">
+      <li>Agent 做了<b>几轮决策</b></li>
+      <li>每轮调了<b>什么工具、传了什么参数</b></li>
+      <li>检索返回了<b>哪些文档、相关性得分多少</b></li>
+      <li>最终回答<b>基于哪些检索结果</b>生成</li>
+      <li>每步的<b>延迟和 token 消耗</b></li>
+    </ul>
+    <div class="note blue">📊 没有 Trace,Agentic RAG 出问题你根本不知道是"没搜到""搜错库"还是"搜到了但没用"。<b>可观测性是 Agentic RAG 的标配,不是加分项。</b></div>
+    <span class="pagenum">15</span>
+  </section>
+  <!-- 16 DEMO -->
+  <section class="slide demo">
+    <div class="clapper">🎬</div>
+    <span class="kicker">现场演示 · ISA 升级</span>
+    <h2>加装 Agent 路由 + LangSmith</h2>
+    <p class="sub">在前几期的 ISA 项目上,现场把 Naive RAG 升级成 Agentic RAG:接三个向量库、写路由 prompt、开 LangSmith,当场跑几个问题看决策过程。</p>
+    <div class="dgrid">
+      <div class="dcard"><div class="h">👀 多库决策</div><p>问一个跨域问题,看 Agent 在<b>三个向量库间怎么选</b>、要不要跨库。</p></div>
+      <div class="dcard"><div class="h">👀 失败 fallback</div><p>故意让一个检索超时,看它<b>降级到 LLM 直答并标注</b>。</p></div>
+      <div class="dcard"><div class="h">👀 完整 Trace</div><p>在 LangSmith 里展开<b>完整调用链</b>:几轮、调了啥、延迟多少。</p></div>
+    </div>
+    <div class="dnote">🛟 保命:课前先把三库 + LangSmith key 配好跑通一次,准备一个"简单问候"和一个"跨域复杂"问题做对比。</div>
+    <span class="tag-row">约 30 分钟 · 全场高光</span>
+    <span class="pagenum">16</span>
+  </section>
+
+  <!-- 17 metrics -->
+  <section class="slide">
+    <span class="kicker">代价 vs 收益 · 实测</span>
+    <h2>慢一点,但答得对多了</h2>
+    <div class="stats">
+      <div class="stat"><div class="big">2.1s → 3.5s</div><div class="lbl">平均延迟</div><div class="dsc">复杂问题多轮检索会更慢;简单问题(不检索)反而更快。</div></div>
+      <div class="stat"><div class="big">0.78 → 0.91</div><div class="lbl">Faithfulness 忠实度</div><div class="dsc">回答对文档的忠实度显著提升,少编造、更可信。</div></div>
+      <div class="stat"><div class="big">2–3×</div><div class="lbl">最坏情况延迟</div><div class="dsc">需多次检索的复杂问题,延迟可能是 Naive 的 2–3 倍。</div></div>
+    </div>
+    <div class="note green">📈 一句话权衡:<b>用可接受的延迟/成本增加,换来显著更高的回答质量与可信度。</b> 这笔账在"查询多样、重视质量"的场景里非常划算。</div>
+    <span class="pagenum">17</span>
+  </section>
+
+  <!-- 18 project -->
+  <section class="slide">
+    <span class="kicker">动手练习 · Project</span>
+    <h2>把你的 ISA 升级成 Agentic RAG</h2>
+    <div class="cards c2">
+      <div class="card ft"><div class="h">① 加两个工具</div><p>给 ISA 加上 <code>search_docs</code> 和 <code>search_web</code> 两个工具。</p></div>
+      <div class="card fx"><div class="h">② 写路由 Prompt</div><p>写清楚 Agent 的路由 System Prompt:何时用哪个工具、找不到怎么说。</p></div>
+      <div class="card ct"><div class="h">③ 对比 10 个问题</div><p>测 10 个问题,<b>对比 Naive vs Agentic 的回答质量</b>。</p></div>
+      <div class="card gr"><div class="h">④ 接 LangSmith</div><p>接入 LangSmith,<b>截图一个完整的 Agentic RAG Trace</b>。</p></div>
+    </div>
+    <div class="note blue">🎯 交付重点:那 10 个问题的对比里,一定要包含"简单问候(不该检索)"和"跨域复杂(需多次检索)",最能看出 Agentic 的价值。</div>
+    <span class="pagenum">18</span>
+  </section>
+
+  <!-- 19 FAQ -->
+  <section class="slide">
+    <span class="kicker">常见问题</span>
+    <h2>现场最常被问的两个</h2>
+    <div class="two">
+      <div class="card ct">
+        <div class="h">Q:比 Naive 慢多少?</div>
+        <p style="margin-top:8px">取决于 Agent 做了几轮决策。<b>简单问题(不检索)反而更快</b>;复杂问题(多次检索)可能慢 2–3 倍。实测平均 <b>2.1s → 3.5s</b>,但 Faithfulness 从 <b>0.78 → 0.91</b>。</p>
+      </div>
+      <div class="card gr">
+        <div class="h">Q:什么时候不该用?</div>
+        <p style="margin-top:8px">查询模式<b>单一</b>(比如只查 FAQ)时,Naive 就够了。Agentic 的价值在<b>查询模式多样</b>——有时要文档、有时要搜网页、有时不用检索。</p>
+      </div>
+    </div>
+    <div class="note">🧊 补充:别为了"显得高级"上 Agentic。<b>先测你的真实查询分布</b>:如果 90% 都是同一类简单查询,Naive + 少量规则可能更划算。</div>
+    <span class="pagenum">19</span>
+  </section>
+
+  <!-- 20 summary -->
+  <section class="slide">
+    <span class="kicker">小结</span>
+    <h2>带走这三句话</h2>
+    <ul class="clean">
+      <li><b>Agentic RAG = 给 RAG 加一个大脑</b>:Agent 决定何时检索、检索什么、检索几次、怎么组合信息。</li>
+      <li><b>代价与收益:</b>代价是更高的延迟和成本,收益是显著更好的回答质量(Faithfulness 0.78→0.91)和用户体验。</li>
+      <li><b>生产四要素:</b>清晰的路由 Prompt、多工具/多库、错误恢复与降级、LangSmith 全链路可观测——缺一不可。</li>
+    </ul>
+    <div class="note green">🚀 下一步:把 ISA 升级跑通,准备好那份 Naive vs Agentic 的 10 题对比 + 一张完整 Trace 截图,就能上会展示了。</div>
+    <span class="tag-row">Production-grade Agentic RAG · 2026</span>
+    <span class="pagenum">20</span>
+  </section>
+</div>
+<div class="hint">← → / 空格 翻页 · 右侧圆点跳转</div>
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  const dotsWrap=document.getElementById('dots');
+  const progress=document.getElementById('progress');
+  let i=0;
+  slides.forEach((_,n)=>{const d=document.createElement('div');d.className='dot'+(n===0?' on':'');d.onclick=()=>go(n);dotsWrap.appendChild(d);});
+  const dots=[...document.querySelectorAll('.dot')];
+  slides.forEach((s,n)=>{const p=s.querySelector('.pagenum'); if(p) p.textContent=String(n+1).padStart(2,'0');});
+  function go(n){i=Math.max(0,Math.min(slides.length-1,n));slides.forEach((s,k)=>s.classList.toggle('active',k===i));dots.forEach((d,k)=>d.classList.toggle('on',k===i));progress.style.width=((i+1)/slides.length*100)+'%';}
+  function next(){go(i+1)} function prev(){go(i-1)}
+  document.addEventListener('keydown',e=>{
+    if(['ArrowRight','PageDown',' '].includes(e.key)){e.preventDefault();next();}
+    else if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();prev();}
+    else if(e.key==='Home')go(0); else if(e.key==='End')go(slides.length-1);
+  });
+  go(0);
+</script>
+</body>
+</html>

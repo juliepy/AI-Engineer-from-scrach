@@ -1,0 +1,47 @@
+{
+  "version": "s04",
+  "decisions": [
+    {
+      "id": "hooks-around-loop",
+      "title": "Hooks Wrap the Loop Instead of Rewriting It",
+      "description": "UserPromptSubmit, PreToolUse, PostToolUse, and Stop hooks attach behavior at lifecycle points while the model-tool-result loop stays unchanged.",
+      "alternatives": "Inlining logging and permission into the loop is quicker at first, but every new cross-cutting concern would make the loop harder to read.",
+      "zh": {
+        "title": "Hook 包裹循环，而不是改写循环",
+        "description": "UserPromptSubmit、PreToolUse、PostToolUse、Stop 等 hook 挂在生命周期节点上，模型-工具-结果循环本身保持不变。"
+      },
+      "ja": {
+        "title": "フックはループを書き換えず包み込む",
+        "description": "UserPromptSubmit、PreToolUse、PostToolUse、Stop の各フックはライフサイクル地点に処理を追加し、model-tool-result ループ自体は保ちます。"
+      }
+    },
+    {
+      "id": "pretooluse-can-block",
+      "title": "PreToolUse Is the Policy Boundary",
+      "description": "PreToolUse hooks run after the model chooses a tool but before the handler executes. That is the natural point for permission, logging, and safety policy.",
+      "alternatives": "Checking after execution can only report damage; checking before execution can prevent it.",
+      "zh": {
+        "title": "PreToolUse 是策略边界",
+        "description": "PreToolUse 在模型选择工具之后、handler 执行之前运行。这是权限、日志和安全策略最自然的插入点。"
+      },
+      "ja": {
+        "title": "PreToolUse はポリシー境界",
+        "description": "PreToolUse はモデルがツールを選んだ後、handler 実行前に動きます。権限、ログ、安全ポリシーを入れる自然な場所です。"
+      }
+    },
+    {
+      "id": "posttooluse-observability",
+      "title": "PostToolUse Keeps Results Observable",
+      "description": "PostToolUse hooks can inspect output size, record traces, or transform metadata without changing every tool handler.",
+      "alternatives": "Each tool could log its own result, but cross-tool behavior would drift.",
+      "zh": {
+        "title": "PostToolUse 让结果可观察",
+        "description": "PostToolUse 可以检查输出大小、记录 trace 或转换元数据，而不需要修改每个工具 handler。"
+      },
+      "ja": {
+        "title": "PostToolUse が結果を観測可能にする",
+        "description": "PostToolUse は出力サイズ確認、trace 記録、メタデータ変換を各 handler へ散らさずに行えます。"
+      }
+    }
+  ]
+}

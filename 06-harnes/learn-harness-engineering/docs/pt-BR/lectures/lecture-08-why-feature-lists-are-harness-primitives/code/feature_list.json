@@ -1,0 +1,15 @@
+[
+  {
+    "id": "qna-001",
+    "category": "grounded_qa",
+    "description": "O usuário pode fazer uma pergunta sobre um documento importado e receber uma resposta com citações visíveis.",
+    "verification": [
+      "Importar um documento Markdown",
+      "Abrir o painel de Perguntas e Respostas (Q&A)",
+      "Fazer uma pergunta sobre um conteúdo conhecido",
+      "Verificar se a resposta é retornada",
+      "Verificar se uma ou mais citações são exibidas"
+    ],
+    "passes": false
+  }
+]

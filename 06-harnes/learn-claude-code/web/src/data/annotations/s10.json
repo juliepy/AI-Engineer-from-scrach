@@ -1,0 +1,47 @@
+{
+  "version": "s10",
+  "decisions": [
+    {
+      "id": "prompt-from-state",
+      "title": "The System Prompt Is Built from Runtime State",
+      "description": "Prompt sections are selected from real state: workspace, available tools, memory, and skills. The prompt becomes a product of the runtime rather than a single hardcoded string.",
+      "alternatives": "A static prompt is easier to inspect, but it goes stale as capabilities change.",
+      "zh": {
+        "title": "系统提示词由运行时状态构建",
+        "description": "Prompt section 来自真实状态：workspace、可用工具、memory 和 skills。提示词是运行时的产物，而不是单个硬编码字符串。"
+      },
+      "ja": {
+        "title": "システムプロンプトはランタイム状態から作る",
+        "description": "workspace、利用可能ツール、memory、skills などの実状態から prompt section を選びます。プロンプトは単一の固定文字列ではなくランタイムの産物です。"
+      }
+    },
+    {
+      "id": "deterministic-cache-key",
+      "title": "A Deterministic Cache Avoids Reassembly",
+      "description": "The context object is serialized with stable ordering. If the key has not changed, the prompt can be reused safely.",
+      "alternatives": "Rebuilding every turn is simple, but hides when the prompt actually changed.",
+      "zh": {
+        "title": "确定性缓存避免重复组装",
+        "description": "Context 对象用稳定顺序序列化。如果 key 没变，提示词就可以安全复用。"
+      },
+      "ja": {
+        "title": "決定的キャッシュで再組み立てを避ける",
+        "description": "context オブジェクトを安定した順序でシリアライズします。key が変わらなければプロンプトを安全に再利用できます。"
+      }
+    },
+    {
+      "id": "sections-have-owners",
+      "title": "Prompt Sections Have Owners",
+      "description": "Identity, tools, workspace, and memory are separate sections. This makes it easier to debug which subsystem injected a bad instruction.",
+      "alternatives": "Concatenating arbitrary strings works until the prompt grows and no one knows where a rule came from.",
+      "zh": {
+        "title": "Prompt Section 有明确归属",
+        "description": "identity、tools、workspace、memory 是分开的 section。这样更容易定位哪一层注入了错误指令。"
+      },
+      "ja": {
+        "title": "prompt section には所有者がある",
+        "description": "identity、tools、workspace、memory を別 section にします。どのサブシステムが悪い指示を入れたかを追いやすくなります。"
+      }
+    }
+  ]
+}

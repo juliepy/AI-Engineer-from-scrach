@@ -1,0 +1,8 @@
+# 高级 RAG 示例依赖
+
+python-dotenv
+langchain-text-splitters
+langchain-experimental
+langchain-deepseek
+sentence-transformers
+faiss-cpu

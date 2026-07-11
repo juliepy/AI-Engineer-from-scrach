@@ -1,0 +1,50 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Model / embedding caches
+.cache/
+**/models--*/**
+*.onnx
+
+# Node
+node_modules/
+dist/
+build/
+.next/
+.turbo/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local data / logs
+*.log
+logs/
+data/raw/
+chroma/
+chromadb/
+*.db
+*.sqlite3
+
+# Temp Office files
+~$*
+_scan_secrets.py
+_redact_secrets.py
+

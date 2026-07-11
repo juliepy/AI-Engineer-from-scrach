@@ -1,0 +1,9 @@
+Objetivo: armazenar material de referência amigável para modelos relacionado ao design system.
+
+Conteúdo sugerido:
+- regras de nomenclatura de componentes
+- tokens de espaçamento e tipografia
+- variantes de estado
+- expectativas de acessibilidade
+
+Mantenha este arquivo conciso e atualize-o sempre que o design system principal for alterado.

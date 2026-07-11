@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RAG Diagnostic Report</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172026;
+      --muted: #667085;
+      --line: #d0d7de;
+      --bg: #f6f8fa;
+      --panel: #ffffff;
+      --green: #137333;
+      --red: #b42318;
+      --blue: #1f6feb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+    h1 { margin: 0 0 8px; font-size: 32px; }
+    h2 { margin: 32px 0 12px; font-size: 20px; }
+    p { color: var(--muted); line-height: 1.6; }
+    .summary {
+      padding: 18px 20px;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--blue);
+      background: var(--panel);
+      border-radius: 8px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .metric-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .metric-card span, .metric-card small { color: var(--muted); }
+    .metric-card strong { display: block; margin: 8px 0; font-size: 34px; }
+    .meter {
+      height: 8px;
+      overflow: hidden;
+      background: #eaeef2;
+      border-radius: 99px;
+      margin: 10px 0 8px;
+    }
+    .meter i { display: block; height: 100%; background: var(--blue); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    th { background: #eef2f6; }
+    tr:last-child td { border-bottom: 0; }
+    .pill {
+      display: inline-block;
+      min-width: 58px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 13px;
+      text-align: center;
+      font-weight: 700;
+    }
+    .pill.pass { color: var(--green); background: #e6f4ea; }
+    .pill.fail { color: var(--red); background: #fce8e6; }
+    ol {
+      display: grid;
+      gap: 10px;
+      padding-left: 24px;
+    }
+    li {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+    li span { display: block; margin: 5px 0; color: var(--muted); }
+    code {
+      background: #eef2f6;
+      border-radius: 4px;
+      padding: 2px 5px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>RAG Diagnostic Report</h1>
+    <p>自动评估 Retriever 与 Generator 的核心指标，并输出优先修复路径。</p>
+    <section class="summary">
+      <strong>诊断结论</strong>
+      <p>Retriever 漏召回：生成器可能拿不到回答问题所需的关键上下文。</p>
+      <p><strong>Query:</strong> 如何通过 RAG 技术减少大语言模型的幻觉？</p>
+      <p><strong>Retrieved:</strong> <code>doc1, doc3, doc5</code></p>
+      <p><strong>Ground Truth:</strong> <code>doc1, doc5, doc6, doc7</code></p>
+    </section>
+    <section class="grid"><article class="metric-card"><span>Context Recall</span><strong>0.50</strong><div class="meter"><i style="width: 50%"></i></div><small>阈值 0.70</small></article><article class="metric-card"><span>Context Precision</span><strong>0.67</strong><div class="meter"><i style="width: 67%"></i></div><small>阈值 0.60</small></article><article class="metric-card"><span>Faithfulness</span><strong>0.67</strong><div class="meter"><i style="width: 67%"></i></div><small>阈值 0.80</small></article><article class="metric-card"><span>Answer Relevancy</span><strong>0.23</strong><div class="meter"><i style="width: 23%"></i></div><small>阈值 0.70</small></article></section>
+    <h2>Metric Details</h2>
+    <table>
+      <thead><tr><th>指标</th><th>得分</th><th>阈值</th><th>状态</th><th>建议</th></tr></thead>
+      <tbody><tr><td>Context Recall（上下文召回率）</td><td>0.50</td><td>0.70</td><td><span class="pill fail">未达标</span></td><td>建议增大 top_k 或减小 chunk_size，确保相关文档被检索到</td></tr><tr><td>Context Precision（上下文精确率）</td><td>0.67</td><td>0.60</td><td><span class="pill pass">通过</span></td><td>保持当前配置，继续扩大评估集验证稳定性。</td></tr><tr><td>Faithfulness（忠实度）</td><td>0.67</td><td>0.80</td><td><span class="pill fail">未达标</span></td><td>建议优化 System Prompt，添加 &#x27;仅基于以下内容回答&#x27; 约束，减少模型幻觉</td></tr><tr><td>Answer Relevancy（答案相关性）</td><td>0.23</td><td>0.70</td><td><span class="pill fail">未达标</span></td><td>建议优化 Query，使用 Query Expansion 或 HyDE 提升问题表达质量</td></tr></tbody>
+    </table>
+    <h2>Priority Actions</h2>
+    <ol><li><strong>优先级 1: Answer Relevancy（答案相关性）</strong><span>当前 0.23 / 阈值 0.70 / 缺口 0.47</span><p>建议优化 Query，使用 Query Expansion 或 HyDE 提升问题表达质量</p></li><li><strong>优先级 2: Context Recall（上下文召回率）</strong><span>当前 0.50 / 阈值 0.70 / 缺口 0.20</span><p>建议增大 top_k 或减小 chunk_size，确保相关文档被检索到</p></li><li><strong>优先级 3: Faithfulness（忠实度）</strong><span>当前 0.67 / 阈值 0.80 / 缺口 0.13</span><p>建议优化 System Prompt，添加 &#x27;仅基于以下内容回答&#x27; 约束，减少模型幻觉</p></li></ol>
+  </main>
+</body>
+</html>

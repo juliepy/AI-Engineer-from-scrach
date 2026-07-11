@@ -1,0 +1,27 @@
+{
+  "version": "s10",
+  "title": "System Prompt",
+  "description": "The system prompt is assembled from runtime state and cached by a deterministic context key.",
+  "steps": [
+    {
+      "type": "system_event",
+      "content": "context={workspace:\"/repo\", memories:true, skills:[\"code-review\"], tools:[\"bash\",\"read_file\"]}",
+      "annotation": "Prompt inputs are explicit runtime data."
+    },
+    {
+      "type": "system_event",
+      "content": "cache miss -> assemble_system_prompt(context)",
+      "annotation": "A new context key causes sections to be selected and joined."
+    },
+    {
+      "type": "assistant_text",
+      "content": "I can use the workspace, memory index, tool guidance, and available skills for this task.",
+      "annotation": "The LLM sees the assembled prompt, not a hardcoded static string."
+    },
+    {
+      "type": "system_event",
+      "content": "same context key -> reuse cached prompt",
+      "annotation": "Repeated turns avoid rebuilding identical prompt text."
+    }
+  ]
+}

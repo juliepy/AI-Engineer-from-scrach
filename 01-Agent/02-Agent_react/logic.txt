@@ -1,0 +1,126 @@
+ReAct Agent 代码逻辑图
+========================
+
+一、整体架构
+------------
+
+    main.py
+       |
+       +-- build_default_tools()  -->  tools (calculator / get_current_time / word_count)
+       |
+       +-- create_deepseek_llm()  -->  llm(prompt) -> str
+       |
+       +-- react_loop(question, tools, llm)
+                  |
+                  v
+              agent/loop.py  (核心循环)
+
+
+二、ReAct 主循环 (agent/loop.py)
+--------------------------------
+
+  一句话：最多 6 轮；每轮问 LLM，能作答就结束，否则执行工具、记入 history，再下一轮。
+
+  步骤表:
+    0. history = []
+    1. 拼 prompt          (prompt.py)
+    2. 调用 llm           (llm/)
+    3. 有 Final Answer?   是 -> 返回答案，结束
+    4. 解析 Thought/Action (prompt.py)
+    5. 执行工具           (tools/) -> Observation
+    6. 写入 history，回到 1
+    7. 6 轮仍无答案 -> Failed
+
+  流程图:
+
+  [开始]
+     |
+     |  history = []
+     v
+  .-------------------.
+  |   第 1~6 轮循环    |<---------------------------.
+  '-------------------'                             |
+     |                                               |
+     | ① 拼 prompt                                   |
+     v                                               |
+  ② 问 LLM                                           |
+     |                                               |
+     v                                               |
+  ③ 有 Final Answer?                                 |
+     |                                               |
+     +--- 是 ---> 返回答案，[结束]                     |
+     |                                               |
+     +--- 否 ---> ④ 解析 Thought / Action            |
+                     |                               |
+                     v                               |
+                 ⑤ 执行工具 -> Observation           |
+                     |                               |
+                     v                               |
+                 ⑥ 写入 history                      |
+                     |                               |
+                     '-------------------------------'
+     |
+     v
+  返回 Failed: max steps exceeded.
+
+
+三、单轮 LLM 输出格式
+---------------------
+
+    Thought: 我需要先计算 ...
+    Action: calculator
+    Action Input: 21+21
+
+    (工具执行后，history 中追加)
+
+    Observation: 42
+
+    (下一轮 LLM 可输出)
+
+    Thought: 已有结果
+    Final Answer: 42
+
+
+四、模块依赖关系
+----------------
+
+    main.py
+      --> agent/__init__.py
+            --> loop.py        --> prompt.py, types.py
+            --> tools/__init__ --> calculator.py, current_time.py, word_count.py
+            --> llm/           --> deepseek.py
+
+
+五、示例执行轨迹（main.py 默认问题）
+------------------------------------
+
+    Question: 请帮我计算 21+21，并统计答案 '42' 这个字符串有多少个字符。
+
+    Step 1:
+      Thought: 先计算 21+21。
+      Action: calculator / Input: 21+21
+      Observation: 42
+
+    Step 2:
+      Thought: 再统计 "42" 的字符数。
+      Action: word_count / Input: 42
+      Observation: 字符数: 2, 词数: 1
+
+    Step 3:
+      Thought: 信息已齐。
+      Final Answer: 21+21 等于 42，"42" 有 2 个字符。
+
+    时序示意:
+
+        用户          LLM              calculator        word_count
+         |            |                    |                 |
+         |  复合问题   |                    |                 |
+         |----------->|                    |                 |
+         |            | Action: calculator |                 |
+         |            |------------------->|                 |
+         |            |<-- Obs: 42 --------|                 |
+         |            | Action: word_count |                 |
+         |            |------------------------------------->|
+         |            |<-- Obs: 字符数:2 ---                 |
+         |            | Final Answer: ...  |                 |
+         |<-----------|                    |                 |

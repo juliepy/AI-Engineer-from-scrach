@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    container_name: schedulr-db
+    environment:
+      POSTGRES_USER: schedulr
+      POSTGRES_PASSWORD: schedulr
+      POSTGRES_DB: schedulr
+    ports:
+      - "5433:5432"
+    volumes:
+      - schedulr_pgdata:/var/lib/postgresql/data
+
+volumes:
+  schedulr_pgdata:

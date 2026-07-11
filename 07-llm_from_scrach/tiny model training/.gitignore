@@ -1,0 +1,7 @@
+.venv/
+venv/
+runs/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+tiny_llm/data/tests/

@@ -1,0 +1,34 @@
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant L as agentic_rag()
+    participant D as decide()
+    participant S as search_docs()
+
+    Note over U,S: 幕1 · 简单问候(不检索)
+    U->>L: "你好"
+    L->>D: decide(messages)
+    D-->>L: final「直接回答,未调用工具」
+    L-->>U: ✅ 比 Naive RAG 更快
+
+    Note over U,S: 幕2 · 跨域复杂(多库路由)
+    U->>L: "对比 产品检索 和 退款政策"
+    L->>D: decide (第1次)
+    D-->>L: tools: search_docs(store=product)
+    L->>S: 检索 product
+    S-->>L: Observation(product)
+    L->>D: decide (第2次, 已有1条tool)
+    D-->>L: tools: search_docs(store=policy)
+    L->>S: 检索 policy
+    S-->>L: Observation(policy)
+    L->>D: decide (第3次)
+    D-->>L: final「综合两库结果作答」
+    L-->>U: ✅ 多次检索 + 综合
+
+    Note over U,S: 幕3 · 检索超时(fallback 降级)
+    U->>L: "ISA 支持哪几种检索模式?" (TIMEOUT_STORE=product)
+    L->>D: decide(messages)
+    D-->>L: tools: search_docs(store=product)
+    L->>S: 检索 product
+    S-->>L: ⏱ raise TimeoutError
+    L-->>U: ↳ 降级:LLM 直答「未经文档验证」

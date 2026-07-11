@@ -1,0 +1,113 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: #f4f7fb;
+  color: #1f2937;
+}
+
+.container {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 2rem 1rem 3rem;
+}
+
+header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.8rem;
+}
+
+.subtitle {
+  margin: 0;
+  color: #6b7280;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin-top: 1rem;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+textarea {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-size: 1rem;
+  resize: vertical;
+}
+
+.actions {
+  margin-top: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+button {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.status {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.answer {
+  white-space: pre-wrap;
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 0.75rem;
+  min-height: 4rem;
+  margin: 0;
+}
+
+.hits {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.hits li {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background: #fafafa;
+}
+
+.hit-meta {
+  font-size: 0.85rem;
+  color: #4b5563;
+  margin-bottom: 0.35rem;
+}
+
+footer {
+  margin-top: 1.5rem;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.85rem;
+}

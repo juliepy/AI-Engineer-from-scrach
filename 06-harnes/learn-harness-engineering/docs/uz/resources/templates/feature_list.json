@@ -1,0 +1,64 @@
+{
+  "project": "replace-with-project-name",
+  "last_updated": "YYYY-MM-DD",
+  "rules": {
+    "single_active_feature": true,
+    "passing_requires_evidence": true,
+    "do_not_skip_verification": true
+  },
+  "status_legend": {
+    "not_started": "Ish hali boshlanmagan.",
+    "in_progress": "Funksiya ustida ayni vaqtda ishlanmoqda (joriy vazifa).",
+    "blocked": "Hujjatlashtirilgan to'siq (blocker) hal etilmaguncha ishni davom ettirib bo'lmaydi.",
+    "passing": "Talab qilingan tekshiruvdan (verification) o'tdi va dalillar yozib qoldirildi."
+  },
+  "features": [
+    {
+      "id": "chat-001",
+      "priority": 1,
+      "area": "chat",
+      "title": "Yangi suhbat yaratish",
+      "user_visible_behavior": "Foydalanuvchi 'Yangi chat' tugmasini bosishi va bo'sh suhbat oynasini ko'rishi kerak.",
+      "status": "not_started",
+      "verification": [
+        "Ilovani oching.",
+        "Yangi chat (New Chat) tugmasini bosing.",
+        "Yon panelda (sidebar) yangi suhbat paydo bo'lganini tekshiring.",
+        "Asosiy panel bo'sh suhbat holatini ko'rsatayotganini tekshiring."
+      ],
+      "evidence": [],
+      "notes": ""
+    },
+    {
+      "id": "chat-002",
+      "priority": 2,
+      "area": "chat",
+      "title": "Joriy suhbatda xabar yuborish",
+      "user_visible_behavior": "Foydalanuvchi xabar jo'natishi va uni faol yozishmalar orasida paydo bo'lishini ko'rishi kerak.",
+      "status": "not_started",
+      "verification": [
+        "Mavjud suhbatni oching.",
+        "Kiritish maydoniga (input) xabar yozing.",
+        "Xabarni jo'nating.",
+        "Yangi xabar yozishmalar (thread) orasida paydo bo'lganini tekshiring."
+      ],
+      "evidence": [],
+      "notes": ""
+    },
+    {
+      "id": "chat-003",
+      "priority": 3,
+      "area": "chat",
+      "title": "Faol suhbatlar ro'yxatini saqlab qolish",
+      "user_visible_behavior": "Ilovani qayta ishga tushirganda foydalanuvchi avval yaratilgan suhbatlarni ko'rishi kerak.",
+      "status": "not_started",
+      "verification": [
+        "Ikkita suhbat yarating.",
+        "Ilovani qayta ishga tushiring.",
+        "Ikkala suhbat ham yon panelda (sidebar) ko'rinib turganini tekshiring."
+      ],
+      "evidence": [],
+      "notes": ""
+    }
+  ]
+}

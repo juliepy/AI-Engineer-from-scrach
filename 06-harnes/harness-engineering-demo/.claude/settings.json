@@ -1,0 +1,36 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Read|Edit|Write|MultiEdit|NotebookEdit|Glob|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"%CLAUDE_PROJECT_DIR%\\.claude\\hooks\\security_guard.py\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"%CLAUDE_PROJECT_DIR%\\.claude\\hooks\\post_tool_use_lint.py\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"%CLAUDE_PROJECT_DIR%\\.claude\\hooks\\stop_validate.py\""
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+Generation（生成）是 RAG 的最后一步：把检索到的上下文与用户问题一起交给模型，产出最终回答。
+
+教学 demo 中，generate_answer 使用模板拼接检索片段，便于观察 retrieve 阶段效果。
+真实系统通常调用 LLM，并在 prompt 中约束：
+- 仅依据提供的 context 回答
+- 不知道时明确说「未找到相关信息」
+- 可选：要求引用来源 doc_id
+
+Prompt 结构示例：
+System: 你是知识库助手，只能根据 context 回答。
+User: context: ... question: ...
+
+常见增强手段：
+- 多轮对话时把历史问题一并检索
+- 对检索结果去重、按 doc_id 聚合
+- 在回答末尾附上 sources 列表，提升可解释性

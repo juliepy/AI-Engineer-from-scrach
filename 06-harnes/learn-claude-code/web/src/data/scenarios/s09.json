@@ -1,0 +1,33 @@
+{
+  "version": "s09",
+  "title": "Memory",
+  "description": "Persistent memory keeps selected project facts available across turns and sessions.",
+  "steps": [
+    {
+      "type": "system_event",
+      "content": "Loaded .memory/MEMORY.md index with 3 entries.",
+      "annotation": "A cheap index is always available to the system prompt."
+    },
+    {
+      "type": "user_message",
+      "content": "Use the repository's preferred test command.",
+      "annotation": "The user references a fact that may have been learned earlier."
+    },
+    {
+      "type": "system_event",
+      "content": "Selected memory: project_facts.md -> preferred_test_command=npm run test:unit",
+      "annotation": "Relevant memory content is injected selectively."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "bash",
+      "content": "npm run test:unit",
+      "annotation": "The agent acts on durable knowledge without asking again."
+    },
+    {
+      "type": "system_event",
+      "content": "extract_memory -> wrote feedback_tabs.md",
+      "annotation": "After the turn, new durable facts can be extracted from the original conversation."
+    }
+  ]
+}

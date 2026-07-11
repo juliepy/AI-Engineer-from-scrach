@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+
+# Build / cache
+dist/
+build/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Ralph loop runtime artifacts
+ralph/*.log
+ralph/DONE.txt
+
+# OS
+.DS_Store
+Thumbs.db

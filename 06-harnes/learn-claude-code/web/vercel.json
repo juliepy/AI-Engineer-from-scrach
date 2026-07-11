@@ -1,0 +1,20 @@
+{
+  "redirects": [
+    {
+      "source": "/:path(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "learn-claude-agents.vercel.app"
+        }
+      ],
+      "destination": "https://learn.shareai.run/:path",
+      "permanent": true
+    },
+    {
+      "source": "/",
+      "destination": "/en",
+      "permanent": false
+    }
+  ]
+}

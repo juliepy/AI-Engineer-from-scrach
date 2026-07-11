@@ -1,0 +1,47 @@
+{
+  "version": "s09",
+  "decisions": [
+    {
+      "id": "memory-index",
+      "title": "A Small Index Keeps Memory Cheap",
+      "description": "MEMORY.md stays short and always present. Full memory files are loaded only when the index suggests they are relevant.",
+      "alternatives": "Injecting all memories every turn would turn long-term knowledge into context bloat.",
+      "zh": {
+        "title": "小索引让记忆保持低成本",
+        "description": "MEMORY.md 保持短小并始终存在。只有当索引显示相关时，才加载完整记忆文件。"
+      },
+      "ja": {
+        "title": "小さな索引でメモリを低コストに保つ",
+        "description": "MEMORY.md は短く常に存在します。索引が関連性を示す場合だけ、完全なメモリファイルを読み込みます。"
+      }
+    },
+    {
+      "id": "extract-after-turn",
+      "title": "Memory Extraction Happens After the Turn",
+      "description": "The agent first solves the user's task, then extracts durable facts from the original messages. This avoids interrupting the working loop with memory bookkeeping.",
+      "alternatives": "Writing memory during every tool step would make the loop noisy and increase accidental persistence.",
+      "zh": {
+        "title": "记忆提取发生在回合之后",
+        "description": "Agent 先完成用户任务，再从原始消息中提取持久事实。这样不会用记忆账务打断工作循环。"
+      },
+      "ja": {
+        "title": "メモリ抽出はターン後に行う",
+        "description": "エージェントはまずユーザーのタスクを解き、その後で元メッセージから永続的な事実を抽出します。作業ループをメモリ管理で中断しません。"
+      }
+    },
+    {
+      "id": "dream-consolidation",
+      "title": "Consolidation Is Periodic, Not Constant",
+      "description": "Dream-style consolidation can merge and prune memories periodically. The runtime separates everyday retrieval from heavier memory maintenance.",
+      "alternatives": "Consolidating on every turn is costly and risks rewriting memories before they prove useful.",
+      "zh": {
+        "title": "整合是周期性的，不是每回合都做",
+        "description": "Dream 式整合可以周期性合并和修剪记忆。运行时把日常检索和更重的记忆维护分开。"
+      },
+      "ja": {
+        "title": "統合は常時ではなく定期的に行う",
+        "description": "Dream 型の統合はメモリの結合や剪定を定期的に行います。日常の検索と重いメモリ保守を分離します。"
+      }
+    }
+  ]
+}

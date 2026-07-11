@@ -1,0 +1,64 @@
+{
+  "project": "substitua-pelo-nome-do-projeto",
+  "last_updated": "AAAA-MM-DD",
+  "rules": {
+    "single_active_feature": true,
+    "passing_requires_evidence": true,
+    "do_not_skip_verification": true
+  },
+  "status_legend": {
+    "not_started": "O trabalho ainda não começou.",
+    "in_progress": "A funcionalidade é a tarefa ativa no momento.",
+    "blocked": "O trabalho não pode continuar até que um bloqueio documentado seja resolvido.",
+    "passing": "A verificação obrigatória foi concluída com sucesso e a evidência foi registrada."
+  },
+  "features": [
+    {
+      "id": "chat-001",
+      "priority": 1,
+      "area": "chat",
+      "title": "Criar uma nova conversa",
+      "user_visible_behavior": "Um usuário pode clicar em Novo Chat e visualizar uma conversa vazia.",
+      "status": "not_started",
+      "verification": [
+        "Abrir o aplicativo.",
+        "Clicar em Novo Chat.",
+        "Verificar se uma nova conversa aparece na barra lateral.",
+        "Verificar se o painel principal mostra um estado de conversa vazia."
+      ],
+      "evidence": [],
+      "notes": ""
+    },
+    {
+      "id": "chat-002",
+      "priority": 2,
+      "area": "chat",
+      "title": "Enviar uma mensagem na conversa atual",
+      "user_visible_behavior": "Um usuário pode enviar uma mensagem e vê-la aparecer na conversa ativa.",
+      "status": "not_started",
+      "verification": [
+        "Abrir uma conversa existente.",
+        "Digitar uma mensagem no campo de entrada.",
+        "Enviar a mensagem.",
+        "Verificar se a nova mensagem aparece na conversa."
+      ],
+      "evidence": [],
+      "notes": ""
+    },
+    {
+      "id": "chat-003",
+      "priority": 3,
+      "area": "chat",
+      "title": "Persistir a lista de conversas ativas",
+      "user_visible_behavior": "Um usuário visualiza conversas criadas anteriormente após reiniciar o aplicativo.",
+      "status": "not_started",
+      "verification": [
+        "Criar duas conversas.",
+        "Reiniciar o aplicativo.",
+        "Verificar se ambas as conversas continuam aparecendo na barra lateral."
+      ],
+      "evidence": [],
+      "notes": ""
+    }
+  ]
+}

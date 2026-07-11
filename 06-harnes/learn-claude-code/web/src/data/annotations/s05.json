@@ -1,0 +1,47 @@
+{
+  "version": "s05",
+  "decisions": [
+    {
+      "id": "todo-as-tool",
+      "title": "TodoWrite Is a Tool, Not a Hidden Planner",
+      "description": "Planning enters the same tool dispatch path as bash or read_file. This keeps the planning state visible and lets the model decide when to update it.",
+      "alternatives": "An automatic planner could create todos behind the scenes, but the user would not see when the model's intent changed.",
+      "zh": {
+        "title": "TodoWrite 是工具，不是隐藏规划器",
+        "description": "规划通过和 bash、read_file 相同的工具分发路径进入系统。这样计划状态可见，模型也能决定何时更新。"
+      },
+      "ja": {
+        "title": "TodoWrite は隠れたプランナーではなくツール",
+        "description": "計画は bash や read_file と同じツールディスパッチ経路に入ります。計画状態が可視化され、モデルが更新タイミングを選べます。"
+      }
+    },
+    {
+      "id": "nag-reminder",
+      "title": "A Lightweight Reminder Prevents Plan Drift",
+      "description": "After several rounds without todo updates, the runtime injects a reminder. The reminder nudges the model without taking over the plan.",
+      "alternatives": "Forcing a todo update every turn would be noisy and slow down simple tasks.",
+      "zh": {
+        "title": "轻量提醒防止计划漂移",
+        "description": "多个回合没有更新 todo 后，运行时会注入提醒。它只提醒模型，不接管计划。"
+      },
+      "ja": {
+        "title": "軽量リマインダーで計画の漂流を防ぐ",
+        "description": "数ターン todo 更新がない場合、ランタイムはリマインダーを注入します。計画を奪わず、モデルに更新を促します。"
+      }
+    },
+    {
+      "id": "in-memory-current-work",
+      "title": "Current Todos Stay Session-Local",
+      "description": "TodoWrite is for the current session's working plan, not durable project management. Later task systems handle persistent work.",
+      "alternatives": "Persisting every todo immediately would blur the difference between a scratch plan and a durable task graph.",
+      "zh": {
+        "title": "当前 Todo 保持会话内状态",
+        "description": "TodoWrite 面向当前会话的工作计划，不是持久项目管理。后面的任务系统负责持久工作。"
+      },
+      "ja": {
+        "title": "現在の todo はセッション内に留める",
+        "description": "TodoWrite は現在セッションの作業計画であり、永続的なプロジェクト管理ではありません。永続作業は後のタスクシステムが扱います。"
+      }
+    }
+  ]
+}

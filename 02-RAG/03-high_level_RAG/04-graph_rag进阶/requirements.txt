@@ -1,0 +1,21 @@
+# GraphRAG + 混合检索 — 04-graph_rag进阶
+# 安装：pip install -r requirements.txt
+
+# --- Notebook 01 / 03：向量检索 & BM25 & RRF ---
+chromadb>=0.5.0
+sentence-transformers>=3.0.0
+rank-bm25>=0.2.2
+
+# --- Notebook 02：Neo4j 知识图谱 ---
+neo4j>=5.0.0
+matplotlib>=3.8.0
+
+# --- Notebook 04：LangChain GraphRAG Pipeline ---
+langchain>=0.3.0
+langchain-openai>=0.2.0
+langchain-community>=0.3.0
+langchain-experimental>=0.3.0
+langchain-neo4j>=0.4.0
+openai>=1.30.0
+python-dotenv>=1.0.0
+json-repair>=0.30.0

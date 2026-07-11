@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand: 47 107 255;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Legacy table reset so the old globals don't bleed in */
+.schedulr-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.schedulr-table th,
+.schedulr-table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f2f5;
+  font-size: 13.5px;
+}
+.schedulr-table th {
+  color: #6b7280;
+  font-weight: 600;
+  background: #f9fafb;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.schedulr-table tbody tr:hover {
+  background: #f9fafb;
+}

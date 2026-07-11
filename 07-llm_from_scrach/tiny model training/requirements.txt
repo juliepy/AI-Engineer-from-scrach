@@ -1,0 +1,4 @@
+# PyTorch 2+ (scaled_dot_product_attention; optional torch.compile)
+torch>=2.0.0
+# Quieter PyTorch imports / tensor conversions on some builds
+numpy>=1.22.0

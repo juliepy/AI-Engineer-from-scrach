@@ -1,0 +1,39 @@
+{
+  "version": "s03",
+  "title": "Permission",
+  "description": "Tool calls pass through hard denies, rule checks, and optional user approval before execution.",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "Delete the temporary build directory.",
+      "annotation": "The user asks for a filesystem action that may be safe or dangerous depending on the path."
+    },
+    {
+      "type": "assistant_text",
+      "content": "I'll check the target before running the command.",
+      "annotation": "The model can propose a tool call, but the harness decides whether execution is allowed."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "bash",
+      "content": "rm -rf /tmp/build-cache",
+      "annotation": "A destructive-looking command enters the permission pipeline."
+    },
+    {
+      "type": "system_event",
+      "content": "Gate 1 hard deny: pass\nGate 2 rule match: destructive command -> ask user",
+      "annotation": "The command is not absolutely forbidden, but it requires confirmation."
+    },
+    {
+      "type": "system_event",
+      "content": "User approval: allowed",
+      "annotation": "The runtime pauses before execution and resumes only after approval."
+    },
+    {
+      "type": "tool_result",
+      "toolName": "bash",
+      "content": "(no output)",
+      "annotation": "Allowed commands continue through the normal tool result path."
+    }
+  ]
+}

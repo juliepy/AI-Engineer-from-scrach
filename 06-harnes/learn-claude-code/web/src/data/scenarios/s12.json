@@ -1,0 +1,48 @@
+{
+  "version": "s12",
+  "title": "Task System",
+  "description": "A file-persisted task graph tracks status, ownership, and blockedBy dependencies.",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "Break the release into tasks and block deployment until tests pass.",
+      "annotation": "The user asks for durable multi-step coordination."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "create_task",
+      "content": "{\"subject\":\"Run tests\"}",
+      "annotation": "Tasks are created as JSON files under .tasks/."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "create_task",
+      "content": "{\"subject\":\"Deploy release\",\"blockedBy\":[\"task_tests\"]}",
+      "annotation": "blockedBy encodes dependency ordering."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "claim_task",
+      "content": "{\"task_id\":\"task_deploy\",\"owner\":\"agent\"}",
+      "annotation": "The claim fails until dependencies are complete."
+    },
+    {
+      "type": "tool_result",
+      "toolName": "claim_task",
+      "content": "Blocked by: [\"task_tests\"]",
+      "annotation": "The task graph prevents premature work."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "complete_task",
+      "content": "{\"task_id\":\"task_tests\"}",
+      "annotation": "Completing a dependency can unblock downstream tasks."
+    },
+    {
+      "type": "tool_result",
+      "toolName": "complete_task",
+      "content": "Completed task_tests\nUnblocked: Deploy release",
+      "annotation": "The harness reports newly available work."
+    }
+  ]
+}

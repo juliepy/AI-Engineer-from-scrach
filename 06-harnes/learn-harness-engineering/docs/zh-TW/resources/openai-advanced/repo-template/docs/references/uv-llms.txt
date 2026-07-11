@@ -1,0 +1,7 @@
+用途：当仓库依赖 `uv` 或类似工具时，存放一份紧凑的 Python 包与环境工作流参考。
+
+建议内容：
+- install 与 sync 命令
+- lockfile 策略
+- virtualenv 约定
+- verification 命令

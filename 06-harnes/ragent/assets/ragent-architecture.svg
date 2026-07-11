@@ -1,0 +1,122 @@
+<svg width="1600" height="980" viewBox="0 0 1600 980" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Ragent 总体架构霓虹风</title>
+  <desc id="desc">霓虹风格的 Ragent 总体架构图，包含客户端、应用编排、RAG 主链路、入库流水线、模型路由、可观测与存储。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="980" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#060B14"/>
+      <stop offset="1" stop-color="#0A1220"/>
+    </linearGradient>
+    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M36 0H0V36" stroke="#1A2740" stroke-width="1"/>
+    </pattern>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10Z" fill="#59EDFF"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="980" fill="url(#bg)"/>
+  <rect width="1600" height="980" fill="url(#grid)" opacity="0.65"/>
+  <text x="56" y="74" fill="#E6F3FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="40" font-weight="700">Ragent 总体架构</text>
+  <text x="56" y="108" fill="#8DA4C5" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="18">RAG + MCP + Ingestion Pipeline + Model Routing</text>
+  <!-- 客户端 -->
+  <g>
+    <rect x="56" y="156" width="260" height="176" rx="18" fill="#0D1B2D" stroke="#2B4E77"/>
+    <text x="82" y="192" fill="#CAEAFF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="20" font-weight="700">客户端</text>
+    <rect x="82" y="208" width="208" height="46" rx="10" fill="#0A2A3A" stroke="#22A7C5"/>
+    <text x="100" y="238" fill="#A8F5FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="15">浏览器 / 应用端</text>
+    <rect x="82" y="264" width="208" height="46" rx="10" fill="#0A2A3A" stroke="#22A7C5"/>
+    <text x="100" y="294" fill="#A8F5FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="15">前端界面 + SSE</text>
+  </g>
+  <!-- 应用编排层 -->
+  <g>
+    <rect x="340" y="120" width="900" height="824" rx="24" fill="#0B1628" stroke="#32507B"/>
+    <text x="372" y="166" fill="#DCEBFF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="24" font-weight="700">应用编排层</text>
+    <text x="372" y="194" fill="#8DA3BF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="15">统一入口：/api/ragent</text>
+    <rect x="370" y="220" width="840" height="80" rx="14" fill="#10223A" stroke="#496FA0"/>
+    <text x="398" y="252" fill="#BED6FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="17" font-weight="600">接口层</text>
+    <text x="398" y="282" fill="#E8F2FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="14">对话、会话、知识库、入库任务、管理后台</text>
+    <rect x="370" y="320" width="520" height="382" rx="18" fill="#0E2137" stroke="#00D8FF" stroke-opacity="0.85"/>
+    <text x="398" y="356" fill="#C6F7FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="21" font-weight="700">RAG 主链路</text>
+    <text x="398" y="388" fill="#E4F0FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="14">1. 加载会话记忆并补入当前问题</text>
+    <text x="398" y="416" fill="#E4F0FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="14">2. 查询改写与子问题拆分</text>
+    <text x="398" y="444" fill="#E4F0FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="14">3. 意图识别与歧义引导</text>
+    <text x="398" y="472" fill="#E4F0FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="14">4. 检索引擎并行执行知识与工具</text>
+    <text x="398" y="500" fill="#E4F0FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="14">5. 组装提示词上下文</text>
+    <text x="398" y="528" fill="#E4F0FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="14">6. 路由模型并流式返回</text>
+    <text x="398" y="556" fill="#E4F0FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="14">7. 写入会话、反馈与追踪</text>
+    <rect x="398" y="580" width="464" height="98" rx="12" fill="#092939" stroke="#21D8FF"/>
+    <text x="420" y="612" fill="#A8F7FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="15">多通道知识检索</text>
+    <text x="420" y="638" fill="#DFFBFF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="13">意图定向通道 + 向量兜底通道</text>
+    <text x="420" y="660" fill="#DFFBFF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="13">后处理：去重、重排、质量过滤</text>
+    <rect x="920" y="320" width="290" height="220" rx="18" fill="#181B31" stroke="#9EA9FF" stroke-opacity="0.8"/>
+    <text x="946" y="356" fill="#DEE1FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="20" font-weight="700">文档入库流水线</text>
+    <text x="946" y="388" fill="#F0F2FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="13">抓取 -> 解析 -> 增强</text>
+    <text x="946" y="414" fill="#F0F2FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="13">分块 -> 丰富 -> 索引</text>
+    <text x="946" y="440" fill="#C7CCFF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="12">来源：文件 / URL / 飞书 / 对象存储</text>
+    <text x="946" y="466" fill="#C7CCFF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="12">输出：向量与元数据</text>
+    <!-- 通用框架层位置保持不变 -->
+    <rect x="920" y="592" width="290" height="110" rx="18" fill="#121D30" stroke="#4673A8"/>
+    <text x="946" y="628" fill="#D8E9FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="20" font-weight="700">通用框架层</text>
+    <text x="946" y="654" fill="#EAF2FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="12">统一结果、异常、上下文、追踪、幂等</text>
+    <text x="946" y="676" fill="#EAF2FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="12">供对话、入库、管理等模块复用</text>
+    <rect x="370" y="722" width="840" height="194" rx="16" fill="#0C1A2A" stroke="#2E4D73"/>
+    <text x="398" y="758" fill="#D4E5FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="20" font-weight="700">可观测与运营</text>
+    <text x="398" y="788" fill="#E7F0FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="14">链路追踪、任务状态、反馈数据、健康检查统一可视化</text>
+    <text x="398" y="814" fill="#A0B7D4" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="13">用于定位检索质量问题、模型故障切换问题与时延问题</text>
+  </g>
+  <!-- 模型基础设施 -->
+  <g>
+    <rect x="1268" y="140" width="282" height="356" rx="20" fill="#0E1727" stroke="#365179"/>
+    <text x="1292" y="184" fill="#DCEBFF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="22" font-weight="700">模型基础设施</text>
+    <text x="1292" y="214" fill="#8EA4C0" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="13">多模型路由与故障切换</text>
+    <rect x="1292" y="240" width="234" height="60" rx="12" fill="#0E2A37" stroke="#24DEFF" filter="url(#glow)">
+      <animate attributeName="stroke-opacity" values="1;0.35;1" dur="2.8s" repeatCount="indefinite"/>
+    </rect>
+    <text x="1310" y="268" fill="#B7F7FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="14">对话模型路由</text>
+    <text x="1310" y="288" fill="#E6FDFF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="12">优先级、探活、失败切换</text>
+    <rect x="1292" y="314" width="234" height="48" rx="12" fill="#1A1D33" stroke="#9B96FF"/>
+    <text x="1310" y="344" fill="#E1DEFF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="13">向量模型路由</text>
+    <rect x="1292" y="376" width="234" height="48" rx="12" fill="#1A1D33" stroke="#9B96FF"/>
+    <text x="1310" y="406" fill="#E1DEFF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="13">重排模型路由</text>
+    <text x="1292" y="456" fill="#C6D6EE" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="12">支持多供应商接入</text>
+  </g>
+  <!-- 状态与存储 -->
+  <g>
+    <rect x="1268" y="520" width="282" height="424" rx="20" fill="#0D1624" stroke="#36506F"/>
+    <text x="1292" y="562" fill="#DCEBFF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="22" font-weight="700">状态与存储</text>
+    <rect x="1292" y="590" width="104" height="56" rx="10" fill="#132536" stroke="#54E8FF"/>
+    <text x="1319" y="623" fill="#ABF8FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="14">关系库</text>
+    <rect x="1422" y="590" width="104" height="56" rx="10" fill="#132536" stroke="#54E8FF"/>
+    <text x="1450" y="623" fill="#ABF8FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="14">缓存</text>
+    <rect x="1292" y="662" width="104" height="56" rx="10" fill="#181B31" stroke="#9B96FF"/>
+    <text x="1319" y="695" fill="#DFDBFF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="14">向量库</text>
+    <rect x="1422" y="662" width="104" height="56" rx="10" fill="#181B31" stroke="#9B96FF"/>
+    <text x="1444" y="695" fill="#DFDBFF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="14">对象存储</text>
+    <rect x="1292" y="736" width="234" height="86" rx="10" fill="#102136" stroke="#4A6B98"/>
+    <text x="1310" y="768" fill="#D3E4FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="14">MCP 工具服务</text>
+    <text x="1310" y="792" fill="#A9C0DE" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="12">工具注册、参数抽取、执行记录</text>
+    <text x="1292" y="860" fill="#91A8C6" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="12">承载会话、分块、向量、追踪与文件</text>
+  </g>
+  <!-- 箭头连接 - 修复了文档入库到通用框架层的连接 -->
+  <g stroke="#59EDFF" stroke-width="2.4" fill="none" marker-end="url(#arrow)">
+    <path d="M316 238C328 238 334 238 340 238"/>
+    <path d="M1240 270C1252 270 1258 270 1268 270"/>
+    <path d="M1240 424C1252 424 1258 424 1268 424"/>
+    <path d="M1240 654C1252 654 1258 654 1268 654"/>
+    <path d="M890 504C902 504 910 504 920 504"/>
+    <!-- 修复：箭头起点从 y=540（文档入库流水线底部）开始 -->
+    <path d="M1065 540C1065 558 1065 575 1065 592"/>
+    <path d="M1408 496C1408 506 1408 512 1408 520"/>
+  </g>
+  <!-- 箭头标签 - 修复：移到应用编排层外部，使用居中对齐 -->
+  <text x="324" y="228" fill="#7DF0FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="12">HTTP / SSE</text>
+  <text x="1254" y="258" text-anchor="middle" fill="#7DF0FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="10">Model</text>
+  <text x="1254" y="412" text-anchor="middle" fill="#7DF0FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="10">Embed</text>
+  <text x="1254" y="642" text-anchor="middle" fill="#7DF0FF" font-family="PingFang SC, Microsoft YaHei, Source Han Sans CN, sans-serif" font-size="10">Storage</text>
+</svg>

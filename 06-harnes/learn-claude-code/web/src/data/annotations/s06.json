@@ -1,0 +1,47 @@
+{
+  "version": "s06",
+  "decisions": [
+    {
+      "id": "fresh-subagent-context",
+      "title": "Subagents Start with Fresh Messages",
+      "description": "The child agent receives only the delegated prompt. This isolates exploratory work and prevents the parent context from filling with every intermediate tool result.",
+      "alternatives": "Sharing the full parent history gives more context, but it defeats the purpose of delegation as context isolation.",
+      "zh": {
+        "title": "子代理从全新 Messages 开始",
+        "description": "子代理只收到被委派的 prompt。这样探索性工作被隔离，父上下文不会塞满每个中间工具结果。"
+      },
+      "ja": {
+        "title": "サブエージェントは新しい messages で始まる",
+        "description": "子エージェントは委任された prompt だけを受け取ります。探索作業を隔離し、親コンテキストが中間 tool result で膨らむのを防ぎます。"
+      }
+    },
+    {
+      "id": "summary-only-return",
+      "title": "Only the Summary Returns to the Parent",
+      "description": "The parent receives a compact final answer, not the child's full transcript. That gives delegation a predictable context cost.",
+      "alternatives": "Returning the full transcript can help debugging, but it makes large subagent runs expensive to continue.",
+      "zh": {
+        "title": "只有摘要返回父循环",
+        "description": "父循环收到的是压缩后的最终答案，而不是子代理的完整 transcript。这样委派的上下文成本可预测。"
+      },
+      "ja": {
+        "title": "親に戻るのは要約だけ",
+        "description": "親が受け取るのは子の完全な transcript ではなく、圧縮された最終回答です。委任のコンテキストコストを予測可能にします。"
+      }
+    },
+    {
+      "id": "no-recursive-task-tool",
+      "title": "Subagents Cannot Spawn Subagents",
+      "description": "The child tool set omits task, preventing recursive delegation from exploding. The lesson keeps isolation visible before adding richer team behavior later.",
+      "alternatives": "Allowing recursion is powerful, but much harder to bound and explain in a teaching runtime.",
+      "zh": {
+        "title": "子代理不能再创建子代理",
+        "description": "子代理工具集中不包含 task，避免递归委派失控。课程先把隔离讲清楚，再在后续章节加入更复杂团队行为。"
+      },
+      "ja": {
+        "title": "サブエージェントはさらにサブエージェントを作れない",
+        "description": "子のツールセットから task を外し、再帰的委任の爆発を防ぎます。まず隔離を明確にし、後の章でより豊かなチーム動作を扱います。"
+      }
+    }
+  ]
+}

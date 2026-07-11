@@ -1,0 +1,12 @@
+# 核心依赖
+openai>=1.30.0          # DeepSeek 兼容 OpenAI SDK
+numpy>=1.26.0           # 向量计算
+faiss-cpu>=1.8.0        # 向量索引（ANN 近似最近邻）
+python-dotenv>=1.0.0    # 读取 .env
+
+# 文档解析
+pypdf>=4.0.0            # PDF 解析
+python-docx>=1.1.0      # Word 解析
+markdown>=3.6           # Markdown 解析
+beautifulsoup4>=4.12.0  # HTML 解析
+lxml>=5.2.0             # HTML 解析加速

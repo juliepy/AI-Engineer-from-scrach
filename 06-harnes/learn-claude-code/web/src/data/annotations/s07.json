@@ -1,0 +1,47 @@
+{
+  "version": "s07",
+  "decisions": [
+    {
+      "id": "catalog-first",
+      "title": "Inject a Skill Catalog First",
+      "description": "The system prompt includes only skill names and short descriptions. The model can discover capabilities without paying for every full SKILL.md on every turn.",
+      "alternatives": "Loading all skills upfront is simple, but it wastes context and makes unrelated instructions compete.",
+      "zh": {
+        "title": "先注入技能目录",
+        "description": "系统提示词只包含技能名和简短描述。模型能发现能力，但不用每轮都为完整 SKILL.md 付出上下文成本。"
+      },
+      "ja": {
+        "title": "まずスキルカタログを注入する",
+        "description": "システムプロンプトにはスキル名と短い説明だけを入れます。モデルは能力を発見できますが、毎ターン全 SKILL.md を読む必要はありません。"
+      }
+    },
+    {
+      "id": "full-skill-via-tool-result",
+      "title": "Full Skills Arrive Through tool_result",
+      "description": "load_skill returns full instructions as a tool result. That makes skill loading an explicit event in the transcript and keeps it compatible with the normal loop.",
+      "alternatives": "Mutating the system prompt mid-turn would hide when the model gained new instructions.",
+      "zh": {
+        "title": "完整技能通过 tool_result 进入",
+        "description": "load_skill 把完整说明作为 tool result 返回。这样技能加载是 transcript 中的显式事件，也兼容普通循环。"
+      },
+      "ja": {
+        "title": "完全なスキルは tool_result で届く",
+        "description": "load_skill は完全な指示を tool result として返します。スキル読み込みが transcript 上の明示的なイベントになり、通常ループと互換です。"
+      }
+    },
+    {
+      "id": "filesystem-skills",
+      "title": "Skills Are Files, Not Code Plugins",
+      "description": "A skill is a directory with SKILL.md. Keeping skills as files makes authoring, reviewing, and loading knowledge straightforward.",
+      "alternatives": "Executable plugins can do more, but this chapter is about instruction loading rather than new runtime code.",
+      "zh": {
+        "title": "技能是文件，不是代码插件",
+        "description": "一个 skill 就是包含 SKILL.md 的目录。把技能保持为文件，便于编写、审查和加载知识。"
+      },
+      "ja": {
+        "title": "スキルはコードプラグインではなくファイル",
+        "description": "スキルは SKILL.md を持つディレクトリです。ファイルとして扱うことで、作成、レビュー、知識読み込みが分かりやすくなります。"
+      }
+    }
+  ]
+}

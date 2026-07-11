@@ -1,0 +1,126 @@
+ReAct Agent 示例
+可用工具：calculator / get_current_time / word_count
+============================================================
+
+
+************************************************************
+User>    请帮我计算 21+21，并统计答案字符串有多少个字符。
+************************************************************
+
+--- Step 1 ---
+
+====>>> LLM request 
+
+--- [0] system ---
+{
+  "role": "system",
+  "content": "You are a ReAct agent. Follow the requested format exactly. Output only ONE turn per response (Thought + Action + Action Input, OR Thought + Final Answer). Use tools when needed, then give Final Answer in the same language as the question."
+}
+--- [1] user ---
+{
+  "role": "user",
+  "content": "You solve tasks with tools. Use EXACTLY this format each turn:\nThought: ...\nAction: one of [calculator, get_current_time, word_count]\nAction Input: ...\nStop when you can answer:\nFinal Answer: ...\n\nIMPORTANT: Output only ONE turn per response. Do not include Final Answer until you have received Observation from a tool.\nTools available: [calculator, get_current_time, word_count]\nTool descriptions:\n- calculator: 计算数学表达式，例如 21+21、100*3、(10+5)/3\n- get_current_time: 获取当前日期时间；Action Input 填时区如 Asia/Shanghai，留空则用默认时区\n- word_count: 统计一段文字的字符数和词数\n\nQuestion: 请帮我计算 21+21，并统计答案字符串有多少个字符。\n"
+}
+
+====<<< LLM response
+
+{
+  "content": "Thought: 第一步，先计算 21+21 的结果。\nAction: calculator\nAction Input: 21+21",
+  "role": "assistant",
+  "reasoning_content": "We need to follow the format: first output Thought, then one of the actions. The question: calculate 21+21 and count how many characters in the answer string. That means first we need to get the result of 21+21, then use word_count on that result string. But we can only output one turn per response. So we need to do calculator first. Then after observation, we do word_count. But the instruction says: output only ONE turn per response. So I'll output the first turn: Thought, Action: calculator, Action Input: 21+21. Then wait for observation. Thenthe next response will use word_count. So I'll do that."
+}
+
+
+
+Model>   Thought: 第一步，先计算 21+21 的结果。
+Action: calculator
+Action Input: 21+21
+
+
+
+
+=======>>> Tool execution ======
+
+{
+  "action": "calculator",
+  "input": "21+21",
+  "observation": "42"
+}
+
+--- Step 2 ---
+
+====>>> LLM request
+
+--- [0] system ---
+{
+  "role": "system",
+  "content": "You are a ReAct agent. Follow the requested format exactly. Output only ONE turn per response (Thought + Action + Action Input, OR Thought + Final Answer). Use tools when needed, then give Final Answer in the same language as the question."
+}
+--- [1] user ---
+{
+  "role": "user",
+  "content": "You solve tasks with tools. Use EXACTLY this format each turn:\nThought: ...\nAction: one of [calculator, get_current_time, word_count]\nAction Input: ...\nStop when you can answer:\nFinal Answer: ...\n\nIMPORTANT: Output only ONE turn per response. Do not include Final Answer until you have received Observation from a tool.\nTools available: [calculator, get_current_time, word_count]\nTool descriptions:\n- calculator: 计算数学表达式，例如 21+21、100*3、(10+5)/3\n- get_current_time: 获取当前日期时间；Action Input 填时区如 Asia/Shanghai，留空则用默认时区\n- word_count: 统计一段文字的字符数和词数\n\nQuestion: 请帮我计算 21+21，并统计答案字符串有多少个字符。\n\nThought: 第一步，先计算 21+21 的结果。\nAction: calculator\nAction Input: 21+21\nObservation: 42\n"
+}
+
+====<<< LLM response
+
+{
+  "content": "Thought: 计算结果是 42，现在统计字符串 \"42\" 的字符数。\nAction: word_count\nAction Input: 42",
+  "role": "assistant",
+  "reasoning_content": "我们得到了计算结果42。接下来需要统计答案字符串\"42\"的字符数。使用word_count工具。"
+}
+
+
+
+Model>   Thought: 计算结果是 42，现在统计字符串 "42" 的字符数。
+Action: word_count
+Action Input: 42
+
+
+
+
+=======>>> Tool execution ======
+
+{
+  "action": "word_count",
+  "input": "42",
+  "observation": "字符数: 2, 词数: 1"
+}
+
+--- Step 3 ---
+
+====>>> LLM request
+
+--- [0] system ---
+{
+  "role": "system",
+  "content": "You are a ReAct agent. Follow the requested format exactly. Output only ONE turn per response (Thought + Action + Action Input, OR Thought + Final Answer). Use tools when needed, then give Final Answer in the same language as the question."
+}
+--- [1] user ---
+{
+  "role": "user",
+  "content": "You solve tasks with tools. Use EXACTLY this format each turn:\nThought: ...\nAction: one of [calculator, get_current_time, word_count]\nAction Input: ...\nStop when you can answer:\nFinal Answer: ...\n\nIMPORTANT: Output only ONE turn per response. Do not include Final Answer until you have received Observation from a tool.\nTools available: [calculator, get_current_time, word_count]\nTool descriptions:\n- calculator: 计算数学表达式，例如 21+21、100*3、(10+5)/3\n- get_current_time: 获取当前日期时间；Action Input 填时区如 Asia/Shanghai，留空则用默认时区\n- word_count: 统计一段文字的字符数和词数\n\nQuestion: 请帮我计算 21+21，并统计答案字符串有多少个字符。\n\nThought: 第一步，先计算 21+21 的结果。\nAction: calculator\nAction Input: 21+21\nObservation: 42\n\nThought: 计算结果是 42，现在统计字符串 \"42\" 的字符数。\nAction: word_count\nAction Input: 42\nObservation: 字符数: 2, 词数: 1\n"
+}
+
+====<<< LLM response
+
+{
+  "content": "Final Answer: 21+21 的结果是 42，字符串 \"42\" 共有 2 个字符。",
+  "role": "assistant",
+  "reasoning_content": "我们得到了计算结果42，字符串\"42\"的字符数是2。现在可以给出最终答案：21+21的结果是42，字符串\"42\"有2个字符。"
+}
+
+
+
+Model>   Final Answer: 21+21 的结果是 42，字符串 "42" 共有 2 个字符。
+
+
+
+
+=====> Model>    21+21 的结果是 42，字符串 "42" 共有 2 个字符。
+
+
+
+============================================================
+Assistant>       21+21 的结果是 42，字符串 "42" 共有 2 个字符。
+============================================================

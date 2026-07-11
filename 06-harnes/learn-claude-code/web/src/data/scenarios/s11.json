@@ -1,0 +1,33 @@
+{
+  "version": "s11",
+  "title": "Error Recovery",
+  "description": "LLM calls are wrapped with targeted recovery paths for token limits, prompt overflow, and transient provider errors.",
+  "steps": [
+    {
+      "type": "system_event",
+      "content": "try LLM call with max_tokens=8000",
+      "annotation": "The normal path is still a regular model call."
+    },
+    {
+      "type": "system_event",
+      "content": "error=max_tokens -> escalate to 64000 without appending a fake user message",
+      "annotation": "Token exhaustion gets a continuation-aware recovery path."
+    },
+    {
+      "type": "system_event",
+      "content": "error=prompt_too_long -> reactive_compact(messages) -> retry once",
+      "annotation": "Prompt overflow triggers compaction instead of blind retry."
+    },
+    {
+      "type": "system_event",
+      "content": "error=529 -> exponential backoff with jitter; repeated 529 -> fallback model",
+      "annotation": "Transient provider errors use backoff and model fallback."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "read_file",
+      "content": "{\"path\":\"README.md\"}",
+      "annotation": "After recovery succeeds, the agent continues the normal tool loop."
+    }
+  ]
+}

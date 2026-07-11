@@ -1,0 +1,10 @@
+# Referência de Fluxo de Trabalho Python (ex: uv)
+
+Propósito: armazenar uma referência compacta para o seu pacote Python e fluxo de trabalho de ambiente quando o `uv` ou ferramentas similares forem importantes para o repositório.
+
+## Conteúdo Sugerido:
+
+- comandos de instalação e sincronização.
+- política de arquivo de bloqueio (lockfile).
+- expectativas de ambiente virtual (virtualenv).
+- comandos de verificação.

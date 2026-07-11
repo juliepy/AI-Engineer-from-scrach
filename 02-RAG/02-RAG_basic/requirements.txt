@@ -1,0 +1,21 @@
+# RAG Basic 依赖
+
+# 环境变量
+python-dotenv
+
+# PDF 解析
+pypdf
+unstructured
+
+# 文本分块
+langchain-text-splitters
+
+# Embedding 模型（本地）
+sentence-transformers
+
+# 向量检索
+faiss-cpu
+
+# 关键词检索
+rank_bm25
+jieba

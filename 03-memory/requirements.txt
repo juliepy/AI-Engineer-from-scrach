@@ -1,0 +1,8 @@
+tiktoken
+numpy
+openai
+python-dotenv
+sentence-transformers
+langchain
+langchain-openai
+langchain-classic

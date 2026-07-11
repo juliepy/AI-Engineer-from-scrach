@@ -1,0 +1,7 @@
+Objetivo: armazenar uma versão limpa e legível por agentes das regras de deploy ou empacotamento das quais o repositório depende.
+
+Conteúdo sugerido:
+- pontos de entrada de build
+- premissas de runtime
+- expectativas de variáveis de ambiente
+- assinaturas comuns de falha

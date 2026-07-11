@@ -1,0 +1,33 @@
+{
+  "version": "s08",
+  "title": "Context Compact",
+  "description": "A layered compaction pipeline trims cheap context first and calls the LLM summary only when needed.",
+  "steps": [
+    {
+      "type": "system_event",
+      "content": "messages: 72 entries, tool_result output: 180k chars",
+      "annotation": "The context window is approaching the budget."
+    },
+    {
+      "type": "system_event",
+      "content": "tool_result_budget -> persisted large output to .large_outputs/out_001.txt",
+      "annotation": "Large tool outputs are moved out before expensive summarization."
+    },
+    {
+      "type": "system_event",
+      "content": "snip_compact -> trimmed middle messages\nmicro_compact -> replaced old tool_results with placeholders",
+      "annotation": "Cheap compaction layers run every turn."
+    },
+    {
+      "type": "system_event",
+      "content": "token estimate still above threshold -> compact_history()",
+      "annotation": "Only after cheap passes fail does the runtime ask the LLM for a summary."
+    },
+    {
+      "type": "tool_result",
+      "toolName": "compact",
+      "content": "Summary: user asked for parser refactor; files inspected: cli.py, parser.py; open task: add test.",
+      "annotation": "The compacted summary replaces older context while preserving task-relevant facts."
+    }
+  ]
+}

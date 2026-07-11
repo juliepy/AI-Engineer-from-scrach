@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/stop_validate.py"
+          }
+        ]
+      }
+    ]
+  }
+}

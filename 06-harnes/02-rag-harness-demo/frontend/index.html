@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RAG Harness Demo</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="container">
+    <header>
+      <h1>RAG 教学演示</h1>
+      <p class="subtitle">检索增强生成 · Harness Engineering 全栈练习</p>
+    </header>
+
+    <section class="panel">
+      <label for="question">你的问题</label>
+      <textarea id="question" rows="3" placeholder="例如：什么是 RAG？分块策略有哪些？"></textarea>
+      <div class="actions">
+        <button id="ask-btn" type="button">提问</button>
+        <span id="status" class="status"></span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>回答</h2>
+      <pre id="answer" class="answer">等待提问…</pre>
+    </section>
+
+    <section class="panel">
+      <h2>检索命中（Retrieval Hits）</h2>
+      <ul id="hits" class="hits"></ul>
+    </section>
+
+    <footer>
+      <p>Pipeline: ingest → chunk → index → retrieve → generate</p>
+    </footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

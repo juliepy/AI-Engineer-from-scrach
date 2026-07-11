@@ -1,0 +1,47 @@
+{
+  "version": "s08",
+  "decisions": [
+    {
+      "id": "cheap-first-compaction",
+      "title": "Compaction Runs Cheap Passes First",
+      "description": "Budgeting large tool results, snipping middle history, and replacing old tool outputs run before any LLM summary. Most turns should avoid an extra model call.",
+      "alternatives": "Summarizing immediately is conceptually simple, but expensive and often unnecessary.",
+      "zh": {
+        "title": "压缩先跑低成本步骤",
+        "description": "大工具结果预算、中段裁剪、旧工具输出占位会先于任何 LLM 摘要运行。多数回合不应该额外调用模型。"
+      },
+      "ja": {
+        "title": "圧縮は低コストな処理から行う",
+        "description": "大きな tool result の退避、中間履歴の切り詰め、古い出力の置換を LLM 要約より先に行います。多くのターンで追加モデル呼び出しを避けられます。"
+      }
+    },
+    {
+      "id": "large-output-side-store",
+      "title": "Large Outputs Move to a Side Store",
+      "description": "The transcript keeps a pointer while the full output is persisted elsewhere. This preserves recoverability without forcing the model to reread huge logs.",
+      "alternatives": "Dropping output loses evidence; keeping all output burns context.",
+      "zh": {
+        "title": "大输出转移到旁路存储",
+        "description": "Transcript 保留指针，完整输出持久化到别处。这样既能恢复证据，又不会强迫模型反复读取巨量日志。"
+      },
+      "ja": {
+        "title": "大きな出力はサイドストアへ移す",
+        "description": "transcript にはポインタだけを残し、完全な出力は別に保存します。証拠を失わず、モデルが巨大ログを読み直す必要もありません。"
+      }
+    },
+    {
+      "id": "reactive-compact",
+      "title": "Reactive Compact Handles API Rejection",
+      "description": "Even after estimates, the API may reject a prompt as too long. reactive_compact is the emergency path that compacts and retries.",
+      "alternatives": "Treating prompt_too_long as fatal would make long sessions brittle.",
+      "zh": {
+        "title": "Reactive Compact 处理 API 拒绝",
+        "description": "即使有估算，API 仍可能拒绝过长 prompt。reactive_compact 是压缩并重试的应急路径。"
+      },
+      "ja": {
+        "title": "Reactive compact が API 拒否を処理する",
+        "description": "見積もり後でも API が prompt_too_long を返すことがあります。reactive_compact は圧縮して再試行する緊急経路です。"
+      }
+    }
+  ]
+}

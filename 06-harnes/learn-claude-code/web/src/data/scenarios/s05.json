@@ -1,0 +1,40 @@
+{
+  "version": "s05",
+  "title": "TodoWrite",
+  "description": "A planning tool makes the agent's intended work visible and keeps long tasks from drifting.",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "Refactor the parser and add a regression test.",
+      "annotation": "The task has multiple steps, so planning should become visible."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "todo_write",
+      "content": "[{\"content\":\"Inspect parser\",\"status\":\"in_progress\"},{\"content\":\"Refactor parsing branch\",\"status\":\"pending\"},{\"content\":\"Add regression test\",\"status\":\"pending\"}]",
+      "annotation": "The model records a plan before acting."
+    },
+    {
+      "type": "tool_result",
+      "toolName": "todo_write",
+      "content": "Todos updated.",
+      "annotation": "The current todo list is kept by the harness."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "read_file",
+      "content": "{\"path\":\"parser.py\"}",
+      "annotation": "Normal tools continue through the same dispatch table."
+    },
+    {
+      "type": "system_event",
+      "content": "<reminder>Update todo status after 3 rounds without todo_write.</reminder>",
+      "annotation": "The nag reminder keeps the plan fresh during long work."
+    },
+    {
+      "type": "assistant_text",
+      "content": "I inspected the parser and will update the todo list before making the code change.",
+      "annotation": "The planning state guides the next turn."
+    }
+  ]
+}

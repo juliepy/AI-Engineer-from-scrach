@@ -1,0 +1,17 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+
+# 本地环境变量，勿提交
+.env
+.env.*
+
+# 课堂产出（可选：若需提交学生作业可删掉下面两行）
+# plans/*.md
+# reports/*.md

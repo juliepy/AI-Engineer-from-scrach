@@ -1,0 +1,38 @@
+{
+  "project": "project-01",
+  "description": "Baseline Electron knowledge base with minimal harness",
+  "features": [
+    {
+      "id": "window-launch",
+      "name": "Window Launch",
+      "description": "Electron app opens a BrowserWindow with correct dimensions and preload script",
+      "status": "pass",
+      "evidence": "npm run dev launches window at 1200x800 with contextIsolation=true and nodeIntegration=false",
+      "testedAt": "2026-03-30T10:00:00Z"
+    },
+    {
+      "id": "document-list",
+      "name": "Document List Panel",
+      "description": "Left sidebar shows imported documents with empty state message",
+      "status": "pass",
+      "evidence": "DocumentList component renders empty state when no documents, shows document cards when data present",
+      "testedAt": "2026-03-30T10:05:00Z"
+    },
+    {
+      "id": "question-panel",
+      "name": "Question Panel",
+      "description": "Bottom input bar accepts questions and submits via IPC",
+      "status": "pass",
+      "evidence": "QuestionPanel renders text input and Ask button, submits to window.knowledgeBase.qa.ask on Enter or click",
+      "testedAt": "2026-03-30T10:08:00Z"
+    },
+    {
+      "id": "data-directory",
+      "name": "Data Directory",
+      "description": "PersistenceService creates and manages userData/knowledge-base-data directory",
+      "status": "pass",
+      "evidence": "PersistenceService constructor calls ensureDirectories() creating data, documents, and index subdirectories",
+      "testedAt": "2026-03-30T10:10:00Z"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "version": "s03",
+  "decisions": [
+    {
+      "id": "permission-before-execution",
+      "title": "Permission Runs Before Tool Execution",
+      "description": "The permission check is inserted between the model's tool call and the handler. The model can ask for an action, but the harness decides whether the action may touch the real workspace.",
+      "alternatives": "Putting permission inside each tool duplicates policy and makes it easier for a new tool to forget the check.",
+      "zh": {
+        "title": "权限检查发生在工具执行前",
+        "description": "权限检查插在模型 tool call 和 handler 之间。模型可以请求动作，但是否允许触碰真实工作区由 harness 决定。"
+      },
+      "ja": {
+        "title": "権限確認はツール実行前に行う",
+        "description": "権限確認はモデルの tool call と handler の間に入ります。モデルは操作を要求できますが、実際のワークスペースに触れてよいかは harness が決めます。"
+      }
+    },
+    {
+      "id": "three-gate-model",
+      "title": "Three Gates Keep Policy Explainable",
+      "description": "Hard denies, rule matches, and user approval are separate gates. That makes it clear whether a command was impossible, risky, or simply waiting for confirmation.",
+      "alternatives": "A single allow/deny function is shorter, but it hides why a command stopped.",
+      "zh": {
+        "title": "三道门让策略可解释",
+        "description": "硬拒绝、规则匹配、用户确认是分开的关卡。这样能看清命令是绝对禁止、有风险，还是只是在等确认。"
+      },
+      "ja": {
+        "title": "三つのゲートでポリシーを説明可能にする",
+        "description": "ハード拒否、ルール照合、ユーザー承認を分けます。コマンドが不可能なのか、危険なのか、確認待ちなのかが明確になります。"
+      }
+    },
+    {
+      "id": "continue-with-tool-result",
+      "title": "Blocked Calls Still Produce Loop State",
+      "description": "A blocked tool call must still leave the loop in a coherent state. The user and model need to know why execution did not happen before choosing the next action.",
+      "alternatives": "Silently skipping a blocked tool is simpler, but the model may repeat the same unsafe request.",
+      "zh": {
+        "title": "被拦截的调用也要留下循环状态",
+        "description": "被拦截的工具调用仍然要让循环状态保持一致。用户和模型都需要知道为什么没有执行，才能决定下一步。"
+      },
+      "ja": {
+        "title": "ブロックされた呼び出しもループ状態を残す",
+        "description": "ブロックされたツール呼び出しでも、ループの状態は一貫している必要があります。実行されなかった理由が分かって初めて次の行動を選べます。"
+      }
+    }
+  ]
+}
