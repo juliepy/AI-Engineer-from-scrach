@@ -4,6 +4,7 @@ from typing import Callable
 from openai import OpenAI
 
 from agent.config import load_env
+from agent.llm.log import print_message, print_messages
 
 
 def create_deepseek_llm(
@@ -24,14 +25,24 @@ def create_deepseek_llm(
     client = OpenAI(api_key=key, base_url=base_url)
 
     def llm(prompt: str) -> str:
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt},
+        ]
+        print("\n====>>> LLM request\n")
+        print_messages(messages)
+
         response = client.chat.completions.create(
             model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt},
-            ],
+            messages=messages,
             temperature=0,
         )
-        return response.choices[0].message.content or ""
+        msg = response.choices[0].message
+
+        print("\n====<<< LLM response\n")
+        print_message(msg)
+
+        print(f"\nModel>\t {msg.content}\n")
+        return msg.content or ""
 
     return llm

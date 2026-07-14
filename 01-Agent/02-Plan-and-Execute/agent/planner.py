@@ -13,18 +13,8 @@ def plan(task: str, llm: Callable[[str], str]) -> List[str]:
 Break the task into 3-7 concrete steps. Return ONE step per line.
 Task: {task}
 """
-    print("\n\n----------------------------------------------------------------")
-    print(f"Planner prompt: {prompt}")
-    print("----------------------------------------------------------------")
     text = llm(prompt)
-    
-    print("\n\n----------------------------------------------------------------")
-    print(f"LLM out: {text}")
-    print("----------------------------------------------------------------")
     steps = _parse_steps(text)
-    print("\n\n----------------------------------------------------------------")
-    print(f"Planner steps: {steps}")
-    print("----------------------------------------------------------------")
     return steps
 
 
@@ -37,7 +27,7 @@ def plan_and_execute(
 ) -> str:
     steps = plan(task, llm)
     if verbose:
-        print("=== Plan ===")
+        print("\n=== Plan ===")
         for i, st in enumerate(steps, 1):
             print(f"  {i}. {st}")
         print()
@@ -46,7 +36,7 @@ def plan_and_execute(
     for attempt in range(max_replans + 1):
         for i, st in enumerate(steps):
             if verbose:
-                print(f"--- Executing step {i + 1}: {st} ---")
+                print(f"\n--- Executing step {i + 1}: {st} ---")
             try:
                 out = execute_step(st, state, tools, llm, verbose=verbose)
                 state[f"step_{i}"] = out
@@ -64,7 +54,7 @@ def plan_and_execute(
                 text = llm(replan_prompt)
                 steps = _parse_steps(text)
                 if verbose:
-                    print("=== Replanned ===")
+                    print("\n=== Replanned ===")
                     for j, new_st in enumerate(steps, 1):
                         print(f"  {j}. {new_st}")
                     print()

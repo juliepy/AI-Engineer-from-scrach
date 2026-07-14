@@ -1,7 +1,19 @@
+import json
 from typing import Callable, Dict, List, Tuple
 
 from agent.prompt import build_prompt, parse_action
 from agent.types import Tool
+
+
+def _print_tool_execution(action: str, action_input: str, observation: str) -> None:
+    print("\n=======>>> Tool execution (local function call) ======\n")
+    print(
+        json.dumps(
+            {"action": action, "input": action_input, "observation": observation},
+            indent=2,
+            ensure_ascii=False,
+        )
+    )
 
 
 def react_loop(
@@ -14,18 +26,11 @@ def react_loop(
     """单步 ReAct 执行器：完成一个子任务后返回 Final Answer。"""
     history: List[Tuple[str, str, str]] = []
     for step in range(1, max_steps + 1):
-        prompt = build_prompt(question, history, tools)
-        print("\n\n----------------------------------------------------------------")
-        print(f"React loop prompt: {prompt}")
-        print("----------------------------------------------------------------")
-        out = llm(prompt)
-        print("\n\n----------------------------------------------------------------")
-        print(f"React loop out: {out}")
-        print("----------------------------------------------------------------")
-
         if verbose:
             print(f"\n--- ReAct Step {step} ---")
-            print(out)
+
+        prompt = build_prompt(question, history, tools)
+        out = llm(prompt)
 
         if "Final Answer:" in out:
             answer = out.split("Final Answer:", 1)[1].strip()
@@ -43,9 +48,8 @@ def react_loop(
             obs = f"ERROR: invalid Action. Must be one of {list(tools.keys())}."
         else:
             obs = tools[action].run(action_input or "")
-            if verbose:
-                print(f"Observation: {obs}")
 
+        _print_tool_execution(action or "", action_input or "", obs)
         history.append((thought, f"{action}[{action_input}]", obs))
 
     return "Failed: max steps exceeded."

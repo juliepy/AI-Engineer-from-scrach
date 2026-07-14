@@ -7,14 +7,17 @@
 ```
 02-Plan-and-Execute/
 ├── main.py              # 程序入口
+├── log.txt              # 一次完整运行日志（可对照本文阅读）
 ├── agent/
 │   ├── types.py         # Tool 定义
 │   ├── planner.py       # plan / plan_and_execute（核心）
 │   ├── executor.py      # execute_step（ReAct 单步执行器）
-│   ├── react_loop.py    # ReAct 循环
+│   ├── react_loop.py    # ReAct 循环 + Tool execution 日志
 │   ├── prompt.py        # ReAct 提示词 / Action 解析
-│   ├── llm/             # LLM 接入（DeepSeek）
-│   └── tools/           # 工具实现
+│   ├── llm/
+│   │   ├── deepseek.py  # DeepSeek 接入
+│   │   └── log.py       # LLM request/response 可读日志
+│   └── tools/           # calculator / get_current_time / word_count
 ├── requirements.txt
 └── .env.example
 ```
@@ -41,13 +44,23 @@
 | `get_current_time` | 获取指定时区当前时间 |
 | `word_count` | 统计文本字符数与词数 |
 
+## 日志标志
+
+跑 `python main.py` 时，用这三类标志扫 log：
+
+| 标志 | 含义 |
+|------|------|
+| `====>>> LLM request` | 发给模型的 messages（`content` 按原文换行打印） |
+| `====<<< LLM response` | 模型返回内容 |
+| `=======>>> Tool execution (local function call)` | 本地工具调用（action / input / observation） |
+
 ## 快速开始
 
 ```bash
 cd 02-Plan-and-Execute
 pip install -r requirements.txt
 
-# 复制并填写 API Key（可与 01-Agent_react 共用同一 Key）
+# 复制并填写 API Key（可与 02-Agent_react 共用同一 Key）
 copy .env.example .env
 
 python main.py
@@ -57,275 +70,163 @@ python main.py
 
 ### 整体架构
 
-```
-    main.py
-       |
-       +-- build_default_tools()  -->  tools (calculator / get_current_time / word_count)
-       |
-       +-- create_deepseek_llm()  -->  llm(prompt) -> str
-       |
-       +-- plan_and_execute(task, llm, tools)
-                  |
-                  +--> agent/planner.py   plan() / plan_and_execute()
-                  |
-                  +--> agent/executor.py  execute_step()
-                              |
-                              v
-                         agent/react_loop.py  (单步 ReAct 执行器)
-                              |
-                              +--> agent/prompt.py  build_prompt / parse_action
-                              |
-                              +--> agent/tools/*    工具调用
+```mermaid
+flowchart TD
+    main[main.py]
+    tools["tools<br/>calculator / get_current_time / word_count"]
+    llm["llm(prompt) -> str"]
+    planner[planner.py<br/>plan / plan_and_execute]
+    executor[executor.py<br/>execute_step]
+    react[react_loop.py<br/>单步 ReAct 执行器]
+    prompt[prompt.py<br/>build_prompt / parse_action]
+    toolImpl[tools/*<br/>工具调用]
+
+    main -->|build_default_tools| tools
+    main -->|create_deepseek_llm| llm
+    main -->|plan_and_execute| planner
+    planner --> executor
+    executor --> react
+    react --> prompt
+    react --> toolImpl
 ```
 
 ### plan_and_execute 主循环
 
 **一句话：** 先全局规划，再逐步执行；每步结果写入 `state`；某步异常则重规划；全部成功后 LLM 汇总。
 
-```
-  [开始]
-     |
-     |  steps = plan(task, llm)     （3~7 步，每行一步）
-     |  state = {}
-     v
-  .------------------------------------------.
-  |  重规划尝试  attempt = 0 .. max_replans   |<------------------.
-  '------------------------------------------'                    |
-     |                                                            |
-     |  for i, st in enumerate(steps):                           |
-     v                                                            |
-  ① execute_step(st, state, tools, llm)                          |
-     |         |                                                  |
-     |         +--> react_loop（见下图，最多 4 轮）                |
-     |                                                            |
-     v                                                            |
-  ② state["step_i"] = out                                        |
-     |                                                            |
-     +--- 异常 ---> ③ llm(replan_prompt) --> 新 steps --> break --+
-     |
-     +--- 全部步骤成功（for-else）---> ④ llm 汇总 state --> 返回 Final Result
-     |
-     |  （重规划次数用尽仍失败）
-     v
-  返回 "Failed after replanning."
+```mermaid
+flowchart TD
+    start([开始]) --> plan["steps = plan(task, llm)<br/>state = {}"]
+    plan --> attempt["重规划 attempt = 0 .. max_replans"]
+    attempt --> loop["for i, st in steps"]
+    loop --> exec["① execute_step<br/>→ react_loop 最多 4 轮"]
+    exec -->|成功| save["② state['step_i'] = out"]
+    exec -->|异常| replan["③ llm(replan_prompt)<br/>新 steps → break"]
+    replan --> attempt
+    save --> more{还有下一步?}
+    more -->|是| loop
+    more -->|全部成功| summary["④ llm 汇总 state"]
+    summary --> ok([返回 Final Result])
+    attempt -->|次数用尽| fail(["Failed after replanning."])
 ```
 
 ### plan() — 全局规划
 
-```
-  [Task]
-     |
-     v
-  拼 prompt: "Break the task into 3-7 concrete steps..."
-     |
-     v
-  llm(prompt)  -->  多行文本
-     |
-     v
-  _parse_steps()  -->  去掉空行、去掉 "- " 前缀
-     |
-     v
-  [Step 1, Step 2, ..., Step N]
+```mermaid
+flowchart TD
+    task([Task]) --> prompt["拼 prompt:<br/>Break the task into 3-7 concrete steps..."]
+    prompt --> llm["llm(prompt) → 多行文本"]
+    llm --> parse["_parse_steps()<br/>去空行 / 去 '- ' 前缀"]
+    parse --> steps(["Step 1 .. Step N"])
 ```
 
 ### execute_step() — 单步执行器
 
-```
-  step + state
-     |
-     v
-  拼 question = "Complete this step only: {step}\nPrior step results: {state}"
-     |
-     v
-  react_loop(question, tools, llm, max_steps=4)
-     |
-     v
-  返回该步 Final Answer（字符串）
+```mermaid
+flowchart TD
+    in(["step + state"]) --> q["拼 question:<br/>Complete this step only + Prior step results"]
+    q --> react["react_loop(question, tools, llm, max_steps=4)"]
+    react --> out(["该步 Final Answer"])
 ```
 
 ### react_loop() — 内嵌 ReAct 循环（单步内）
 
 **一句话：** 最多 4 轮；每轮问 LLM，能答则返回，否则调工具、记入 `history`，继续下一轮。
 
-```
-  [开始]
-     |
-     |  history = []
-     v
-  .-------------------.
-  |   第 1~4 轮循环    |<---------------------------.
-  '-------------------'                             |
-     |                                               |
-     | ① build_prompt(question, history, tools)      |
-     v                                               |
-  ② llm(prompt) --> out                             |
-     |                                               |
-     v                                               |
-  ③ out 含 "Final Answer:" ?                        |
-     |                                               |
-     +--- 是 ---> 提取答案，返回给 execute_step       |
-     |                                               |
-     +--- 否 ---> ④ parse_action(out)               |
-                     |                               |
-                     v                               |
-                 ⑤ tools[action].run(input)         |
-                     |                               |
-                     v                               |
-                 ⑥ history.append(thought, action, obs)
-                     |                               |
-                     '-------------------------------'
-     |
-     |  （跑满 4 轮仍无 Final Answer）
-     v
-  返回 "Failed: max steps exceeded."
+```mermaid
+flowchart TD
+    start([开始 history = empty]) --> loop["第 1~4 轮"]
+    loop --> build["① build_prompt"]
+    build --> call["② llm(prompt) → out"]
+    call --> check{"③ 含 Final Answer?"}
+    check -->|是| answer([提取答案返回])
+    check -->|否| parse["④ parse_action"]
+    parse --> tool["⑤ tools[action].run"]
+    tool --> hist["⑥ history.append"]
+    hist --> loop
+    loop -->|跑满仍无答案| fail(["Failed: max steps exceeded."])
 ```
 
 ### 重规划分支
 
-```
-  execute_step() 抛出 Exception
-     |
-     v
-  replan_prompt = "Task / Failed step / Error / Give a new plan."
-     |
-     v
-  llm(replan_prompt)  -->  新 steps
-     |
-     v
-  break 内层 for  -->  外层 attempt+1，从头执行新计划
+```mermaid
+flowchart TD
+    err(["execute_step 抛出 Exception"]) --> prompt["replan_prompt =<br/>Task / Failed step / Error / Give a new plan"]
+    prompt --> llm["llm(replan_prompt) → 新 steps"]
+    llm --> retry["break 内层 for<br/>外层 attempt+1，从头执行新计划"]
 ```
 
 ## 时序图
 
 ### 整体 Plan-and-Execute 流程
 
-```
-    用户          main.py        planner.py       executor.py      react_loop       LLM          tools
-     |               |               |                 |                |            |             |
-     |  task         |               |                 |                |            |             |
-     |-------------->|               |                 |                |            |             |
-     |               | plan_and_execute              |                |            |             |
-     |               |-------------->|               |                |            |             |
-     |               |               | plan(task)     |                |            |             |
-     |               |               |----------------------------------------------->|             |
-     |               |               |<-- steps[] -----------------------------------|             |
-     |               |               |                 |                |            |             |
-     |               |               | execute_step(step_0, state)       |            |             |
-     |               |               |---------------->|                |            |             |
-     |               |               |                 | react_loop     |            |             |
-     |               |               |                 |--------------->|            |             |
-     |               |               |                 |                | (ReAct 轮) |             |
-     |               |               |                 |                |----------->|             |
-     |               |               |                 |                |            | tool call   |
-     |               |               |                 |                |------------------------>|
-     |               |               |                 |                |<-- obs ----------------|
-     |               |               |                 |                | Final Answer            |
-     |               |               |                 |<-- out --------|            |             |
-     |               |               | state["step_0"]=out               |            |             |
-     |               |               |                 |                |            |             |
-     |               |               | ... step_1, step_2 ...            |            |             |
-     |               |               |                 |                |            |             |
-     |               |               | llm("Summarize final result...")  |            |             |
-     |               |               |------------------------------------------------>|             |
-     |               |               |<-- Final Result ------------------------------|             |
-     |               |<-- result ----|                 |                |            |             |
-     |<-- result ----|               |                 |                |            |             |
-```
+```mermaid
+sequenceDiagram
+    actor User as 用户
+    participant Main as main.py
+    participant Planner as planner.py
+    participant Executor as executor.py
+    participant React as react_loop
+    participant LLM as LLM
+    participant Tools as tools
 
-### 单步内 ReAct 时序（execute_step 调用 react_loop）
+    User->>Main: task
+    Main->>Planner: plan_and_execute
+    Planner->>LLM: plan(task)
+    LLM-->>Planner: steps[]
 
-```
-    executor.py    react_loop       LLM          calculator
-         |              |            |                |
-         | react_loop(question)      |                |
-         |------------->|            |                |
-         |              | prompt    |                |
-         |              |---------->|                |
-         |              | Thought + Action           |
-         |              | Action: calculator         |
-         |              | Action Input: 21+21        |
-         |              |--------------------------->|
-         |              |            |               |
-         |              |            |  Observation: 42
-         |              |<-----------|               |
-         |              | prompt (+ history)         |
-         |              |---------->|                |
-         |              | Final Answer: 42           |
-         |              |<----------|                |
-         |<-- "42" -----|            |                |
+    Planner->>Executor: execute_step(step_0, state)
+    Executor->>React: react_loop
+    React->>LLM: ReAct 轮
+    LLM-->>React: Thought + Action
+    React->>Tools: tool call
+    Tools-->>React: observation
+    React->>LLM: (+ history)
+    LLM-->>React: Final Answer
+    React-->>Executor: out
+    Executor-->>Planner: out
+    Note over Planner: state["step_0"] = out
+
+    Note over Planner: ... step_1, step_2 ...
+
+    Planner->>LLM: Summarize final result
+    LLM-->>Planner: Final Result
+    Planner-->>Main: result
+    Main-->>User: result
 ```
 
-### 运行示例时序（`main.py` 默认任务）
+### 单步内 ReAct 时序（以 step 3 求和为例）
 
-**Task:** `请帮我计算 21+21，并统计答案字符串有多少个字符。`
+```mermaid
+sequenceDiagram
+    participant Executor as executor.py
+    participant React as react_loop
+    participant LLM as LLM
+    participant Calc as calculator
 
-**Phase 1 — 规划**
-
-```
-    planner.py       LLM
-         |            |
-         | plan()     |
-         |----------->|
-         |  steps:    |
-         |  1. 计算 21+21
-         |  2. 统计结果字符串字符数
-         |<-----------|
-```
-
-**Phase 2 — 逐步执行**
-
-```
-    planner.py    executor    react_loop    LLM    calculator    word_count
-         |            |           |         |          |              |
-         | step_0     |           |         |          |              |
-         |----------->|           |         |          |              |
-         |            | ReAct     |         |          |              |
-         |            |---------->|         |          |              |
-         |            |           | Action: calculator  |              |
-         |            |           |-------------------->|              |
-         |            |           |<-- 42 --------------|              |
-         |            |           | Final Answer: 42    |              |
-         |            |<-- 42 ----|         |          |              |
-         | state["step_0"]=42     |         |          |              |
-         |            |           |         |          |              |
-         | step_1     |           |         |          |              |
-         |----------->|           |         |          |              |
-         |            | ReAct     |         |          |              |
-         |            |---------->|         |          |              |
-         |            |           | Action: word_count|              |
-         |            |           |--------------------------------->|
-         |            |           |<-- 字符数:2, 词数:1 --------------|
-         |            |           | Final Answer: 2 个字符             |
-         |            |<-- result |         |          |              |
-         | state["step_1"]=...    |         |          |              |
-```
-
-**Phase 3 — 汇总**
-
-```
-    planner.py       LLM              用户
-         |            |                |
-         | Summarize(state)            |
-         |----------->|                |
-         | Final Result               |
-         |<-----------|                |
-         |---------------------------->|
+    Executor->>React: react_loop(question)
+    React->>LLM: prompt
+    LLM-->>React: Thought + Action: calculator<br/>Action Input: 2025+4+9
+    React->>Calc: 2025+4+9
+    Calc-->>React: Observation: 2038
+    React->>LLM: prompt (+ history)
+    LLM-->>React: Final Answer: 2038
+    React-->>Executor: "2038"
 ```
 
 ### 重规划时序（某步失败）
 
-```
-    planner.py       executor.py       LLM
-         |                |             |
-         | execute_step   |             |
-         |--------------->|             |
-         |                | Exception   |
-         |<-- 异常 --------|             |
-         | replan_prompt  |             |
-         |-------------------------------->|
-         | 新 steps[]     |             |
-         |<--------------------------------|
-         | 重新从 step_0 执行新计划       |
+```mermaid
+sequenceDiagram
+    participant Planner as planner.py
+    participant Executor as executor.py
+    participant LLM as LLM
+
+    Planner->>Executor: execute_step
+    Executor-->>Planner: Exception
+    Planner->>LLM: replan_prompt
+    LLM-->>Planner: 新 steps[]
+    Note over Planner: 重新从 step_0 执行新计划
 ```
 
 ## 核心代码
@@ -334,27 +235,126 @@ python main.py
 from agent import build_default_tools, create_deepseek_llm, plan_and_execute
 
 tools = build_default_tools()
-llm = create_deepseek_llm()
-result = plan_and_execute("你的任务", llm, tools, max_replans=2, verbose=True)
+llm = create_deepseek_llm(
+    system_prompt=(
+        "You are a Plan-and-Execute agent assistant. "
+        "When planning, output numbered steps one per line. "
+        "When executing or summarizing, use the same language as the task."
+    )
+)
+task = "查看当前日期，把当前日期所有的数字求和，并返回结果。"
+result = plan_and_execute(task, llm, tools, max_replans=2, verbose=True)
 ```
 
-## 运行示例
+## 运行示例（对照 `log.txt`）
 
-**Task:** `请帮我计算 21+21，并统计答案字符串有多少个字符。`
+**Task:** `查看当前日期，把当前日期所有的数字求和，并返回结果。`
+
+> 有先后依赖：取日期 → 拆数字 → 求和 → 返回。适合展示「先出计划书，再逐步执行，并把上一步结果写入 state」。
+
+### Phase 1 — 规划
 
 ```
+====>>> LLM request
+  Break the task into 3-7 concrete steps...
+  Task: 查看当前日期，把当前日期所有的数字求和，并返回结果。
+
+====<<< LLM response
+  1. 获取当前日期（年、月、日）。
+  2. 将年、月、日的数字分别提取出来。
+  3. 将所有数字相加求和。
+  4. 返回求和结果。
+
 === Plan ===
-  1. 使用计算器计算 21+21
-  2. 统计计算结果字符串的字符数
-
---- Executing step 1: ... ---
-(ReAct 调用 calculator → 42)
-
---- Executing step 2: ... ---
-(ReAct 调用 word_count → 字符数: 2, 词数: 1)
-
-Final Result: 21+21 等于 42，答案字符串 "42" 有 2 个字符。
+  1. 1. 获取当前日期（年、月、日）。
+  2. 2. 将年、月、日的数字分别提取出来。
+  3. 3. 将所有数字相加求和。
+  4. 4. 返回求和结果。
 ```
+
+### Phase 2 — 逐步执行
+
+```
+--- Executing step 1: 获取当前日期 ---
+  LLM → Final Answer: 当前日期是2025年4月9日。
+  state["step_0"] = 当前日期是2025年4月9日。
+
+--- Executing step 2: 提取年/月/日数字 ---
+  （读 Prior step results，无需工具）
+  Final Answer: 年：2025，月：4，日：9
+  state["step_1"] = 年：2025，月：4，日：9
+
+--- Executing step 3: 求和 ---
+  ====>>> LLM request ... Action: calculator / Action Input: 2025+4+9
+  =======>>> Tool execution (local function call) ======
+  { "action": "calculator", "input": "2025+4+9", "observation": "2038" }
+  ====<<< LLM response → Final Answer: 2038
+  state["step_2"] = 2038
+
+--- Executing step 4: 返回结果 ---
+  Final Answer: 2038
+  state["step_3"] = 2038
+```
+
+时序摘要：
+
+```mermaid
+sequenceDiagram
+    participant Planner as planner
+    participant Executor as executor
+    participant React as react_loop
+    participant LLM as LLM
+    participant Tools as calculator
+
+    Planner->>Executor: step_0 获取当前日期
+    Executor->>React: react_loop
+    React->>LLM: prompt
+    LLM-->>React: Final Answer: 当前日期是2025年4月9日
+    React-->>Executor: out
+    Note over Planner: state[step_0]
+
+    Planner->>Executor: step_1 提取数字
+    Executor->>React: react_loop
+    React->>LLM: prompt + prior results
+    LLM-->>React: Final Answer: 年：2025，月：4，日：9
+    React-->>Executor: out
+    Note over Planner: state[step_1]
+
+    Planner->>Executor: step_2 求和
+    Executor->>React: react_loop
+    React->>LLM: prompt
+    LLM-->>React: Action: calculator 2025+4+9
+    React->>Tools: 2025+4+9
+    Tools-->>React: Observation: 2038
+    React->>LLM: prompt + history
+    LLM-->>React: Final Answer: 2038
+    React-->>Executor: 2038
+    Note over Planner: state[step_2]=2038
+
+    Planner->>Executor: step_3 返回结果
+    Executor->>React: react_loop
+    React->>LLM: prompt
+    LLM-->>React: Final Answer: 2038
+    React-->>Executor: 2038
+    Note over Planner: state[step_3]=2038
+```
+
+### Phase 3 — 汇总
+
+```
+====>>> LLM request
+  Summarize final result based on:
+  {'step_0': '当前日期是2025年4月9日。',
+   'step_1': '年：2025，月：4，日：9',
+   'step_2': '2038',
+   'step_3': '2038'}
+
+====<<< LLM response / Final Result:
+  根据提供的步骤结果，最终总结如下：
+  当前日期为2025年4月9日，而最终得出的年份是2038年。
+```
+
+> 注：本次 log 里 step 1 未真正走到 Tool execution（模型同轮写出了 Final Answer，`react_loop` 优先截断返回）。step 3 才出现本地 `calculator` 调用。完整原始输出见同目录 `log.txt`。
 
 ## 扩展方式
 

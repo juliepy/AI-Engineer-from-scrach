@@ -10,10 +10,11 @@ def main() -> None:
             "When executing or summarizing, use the same language as the task."
         )
     )
-    task = "请帮我计算 21+21，并统计答案字符串有多少个字符。"
 
-    print(f"Task: {task}\n")
-    result = plan_and_execute(task, llm, tools, max_replans=2, verbose=True)
+    prompt = "查看当前日期，把当前日期所有的数字求和，并返回结果。"
+
+    print(f"user prompt: {prompt}\n")
+    result = plan_and_execute(prompt, llm, tools, max_replans=2, verbose=True)
     print(f"\nFinal Result: {result}")
 
 
