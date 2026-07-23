@@ -493,8 +493,8 @@ def compress_context(
         # session), leaving the flag unset is harmless; a non-fatal
         # transient failure is swallowed inside the function so the flag
         # is set normally on the next successful pass.
-        check_compression_model_feasibility(agent)
-        agent._compression_feasibility_checked = True
+        (agent)
+        agent._compression_feasibilitcheck_compression_model_feasibilityy_checked = True
 
     _pre_msg_count = len(messages)
     # In-place compaction (config: compression.in_place, see #38763). When True,

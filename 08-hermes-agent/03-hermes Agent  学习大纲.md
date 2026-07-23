@@ -104,28 +104,36 @@ flowchart TD
 
 **学习目标**：评测维度设计 + 可观测性；行为契约测试 vs 变更检测测试。
 
+**教材目录**：[`02-eval/`](./02-eval/)——`hermes_src/` 源码剪枝 + `notes/` 讲稿对照。
+
 **代码目录结构**（本步骤要读/要跑的文件）
 
 ```text
-hermes-agent/
-├── scripts/
-│   └── run_tests.sh    # CI 对齐的唯一测试入口（勿直接调 pytest）
-├── tests/              # 评测 / 单测集
-│   └── agent/          # 主循环 / 记忆 / 压缩相关测试范例（不变量断言参考）
-├── hermes_logging.py   # 结构化日志：agent.log / errors.log / gateway.log
-└── AGENTS.md           # 「Don't write change-detector tests」小节
+02-eval/
+├── README.md
+├── notes/
+│   ├── 1_eval_invariants.md      # 不变量 vs 变更检测
+│   └── 2_logging_trace.md        # session_tag / 日志分流
+└── hermes_src/
+    ├── AGENTS.md                 # 「Don't write change-detector tests」
+    ├── hermes_logging.py         # agent.log / errors.log / gateway.log
+    ├── scripts/run_tests.sh      # CI 对齐的唯一测试入口（勿直接调 pytest）
+    └── tests/agent/              # 不变量断言范例
+        ├── test_prompt_caching.py        # ★ 课堂主文件
+        ├── test_context_compressor.py
+        └── test_memory_provider.py
 ```
 
-（Trace 侧无独立源码目录，通过 `hermes logs` 命令 + 外接 LangFuse 观察。）
+（完整仓库里 Trace 还可配合 `hermes logs` + 外接 LangFuse。）
 
 ### 2.1 Eval / Benchmark
 - 维度：完成率 / 步数 / 成本 / 工具选对率 / 忠实度。
-- 源码：`scripts/run_tests.sh`、`tests/`；根 `AGENTS.md`「Don't write change-detector tests」。
+- 源码：`02-eval/hermes_src/scripts/run_tests.sh`、`tests/agent/`；`AGENTS.md`「Don't write change-detector tests」。
 - **动手**：给一个任务建 20~50 条评测集 + 自动跑分脚本；至少写 1 条「不变量断言」而非「快照断言」。
 
 ### 2.2 Observability / Trace
 - 概念：trace_id / span；每个 Tool/LLM/检索记什么；Trace 查因果、Metrics 看 SLO、Log 查细节。
-- 源码：`hermes_logging.py`、`hermes logs` 命令。
+- 源码：`02-eval/hermes_src/hermes_logging.py`、`hermes logs` 命令。
 - **动手**：接入 LangFuse（或自建 span），录一条完整 Trace 做一次根因分析。
 
 **面试会讲**
@@ -138,29 +146,38 @@ hermes-agent/
 
 **学习目标**：一次请求怎么走完「思考 → 调工具 → 观察 → 再思考」，怎么控预算 / 防死循环。
 
+**教材目录**：[`03-run-agent/`](./03-run-agent/)——`hermes_src/` 源码剪枝 + `notes/` 讲稿对照。
+
 **源码精读清单**
-- `run_agent.py` → `AIAgent.run_conversation()`：核心 while 循环、`max_iterations`、`iteration_budget`、`_interrupt_requested`、一次 grace call。
-- `model_tools.py` → `discover_builtin_tools()`、`handle_function_call()`：工具发现与分发。
-- `toolsets.py` → `_HERMES_CORE_TOOLS`、`TOOLSETS`：工具集如何按平台组装。
-- `tools/registry.py`：`registry.register()` 自动发现机制。
+- `agent/conversation_loop.py` → `run_conversation()`：**真正的** while 循环、`max_iterations`、`iteration_budget`、`_interrupt_requested`、grace call。
+- `run_agent.py` → `AIAgent.run_conversation()`：现为 **forwarder**（转发到 conversation_loop）。
+- `model_tools.py` → `handle_function_call()`；发现由 `tools/registry.py` 的 `discover_builtin_tools()` 触发。
+- `toolsets.py` → `_HERMES_CORE_TOOLS`、`TOOLSETS`。
+- `tools/registry.py`：`registry.register()` 自动发现。
+- 开场白对照：[`04.1-memory/`](./04.1-memory/) 的 `turn_context.py`。
 
 **代码目录结构**（本步骤要读/要跑的文件）
 
 ```text
-hermes-agent/
-├── run_agent.py        # AIAgent 主循环入口：run_conversation() 的 while 循环
-├── model_tools.py      # 工具发现 discover_builtin_tools() + 分发 handle_function_call()
-├── toolsets.py         # _HERMES_CORE_TOOLS / TOOLSETS：按平台组装工具集
-├── cli.py              # HermesCLI 交互入口（本地跑通、打断点用这个）
-├── hermes_state.py     # SessionDB 会话存储（观察一轮完整消息序列）
-└── tools/
-    ├── registry.py     # registry.register() 自动发现机制
-    └── todo_tool.py    # agent 级工具拦截范例（被主循环提前接管）
+03-run-agent/
+├── README.md
+├── notes/
+│   ├── 1_agent_loop.md           # while / 预算 / 中断
+│   ├── 2_tools_discovery.md      # registry → model_tools → toolsets
+│   └── 3_todo_intercept.md       # agent 级工具范例
+└── hermes_src/
+    ├── run_agent.py              # AIAgent；run_conversation → forwarder
+    ├── agent/conversation_loop.py # ★ 真正的 while 循环
+    ├── model_tools.py            # handle_function_call / get_tool_definitions
+    ├── toolsets.py               # _HERMES_CORE_TOOLS / TOOLSETS
+    └── tools/
+        ├── registry.py           # discover_builtin_tools / register
+        └── todo_tool.py          # agent 级工具拦截范例
 ```
 
 **动手**
 - 画一张主循环时序图（消息 role 交替：system/user/assistant/tool）。
-- 在本地跑通 Hermes CLI，打断点观察一轮 tool call 的完整消息序列。
+- 在本地跑通 Hermes CLI，打断点观察一轮 tool call 的完整消息序列（断点打在 `conversation_loop` 的 while，不要只打在 forwarder）。
 
 **面试会讲**
 - Runtime = 主循环 + 工具调度 + 状态 + 预算/中断。
