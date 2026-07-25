@@ -1,0 +1,194 @@
+[mode] DeepSeek live (deepseek-v4-pro, key len=35)
+[web]  search backend = ddgs
+
+========================================================================
+  STEP 1 · Load fixtures → MEMORY+USER → system；history → conversation_history
+========================================================================
+  MEMORY entries: 2
+  USER entries:   2
+  history msgs:   7 (system rows dropped)
+  system chars:   2168
+
+========================================================================
+  STEP 2 · Registry expose tools → DemoAgent
+========================================================================
+  [registry] expose tool=todo toolset=todo
+  [registry] expose tool=web_search toolset=web
+
+Exposed tools:
+- todo: Manage your task list for the current session. Use for complex tasks with 3+ ste
+- web_search: Search the web for information. Returns up to 5 results by default with titles, 
+
+valid_tool_names = ['todo', 'web_search']
+todo:       agent-level intercept → agent._todo_store
+web_search: registry.dispatch    → backend=ddgs
+
+========================================================================
+  STEP 3 · run_conversation — history + while 思考→工具→观察
+========================================================================
+
+  workflow:
+    MEMORY.md + USER.md → frozen system_prompt (prompt cache prefix)
+    conversation_history.md → prior user/assistant turns
+    append current user
+      → while (api_call_count < max and budget.remaining > 0) or grace:
+           DeepSeek(+ tools) → tool_calls? invoke → continue : final
+
+
+▶ enter while  max_iterations=6 budget.remaining=6
+
+── API call #1  budget used=1 remaining=5 ──
+  ← assistant content='' tool_calls=['todo']
+  ┊ tool → todo({"todos": [{"id": "1", "status": "in_progress", "content": "搜索 Hermes Agent conversation_loop 官方源码/文档"}, {"id": "2", "st)
+  ┊ result ← {"todos": [{"id": "1", "content": "搜索 Hermes Agent conversation_loop 官方源码/文档", "status": "in_progress"}, {"id": "2", "content": "核对三个刹车(max_iterations/IterationBudget/budget_grace_call/interrupt) + to
+
+── API call #2  budget used=2 remaining=4 ──
+  ← assistant content='' tool_calls=['web_search', 'web_search']
+  ┊ tool → web_search({"query": "site:github.com/NousResearch/hermes-agent conversation_loop agent loop", "limit": 5})
+  ┊ result ← {
+  "success": true,
+  "data": {
+    "web": [
+      {
+        "title": "GitHub - NousResearch/hermes-agent: The agent that grows with you",
+        "url": "https://github.com/NousResearch/hermes-agent
+  ┊ tool → web_search({"query": "site:hermes-agent.nousresearch.com agent loop", "limit": 5})
+  ┊ result ← {
+  "success": true,
+  "data": {
+    "web": [
+      {
+        "title": "Agent Loop Internals | Hermes Agent",
+        "url": "https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop",
+  
+
+── API call #3  budget used=3 remaining=3 ──
+  ← assistant content='' tool_calls=['web_search']
+  ┊ tool → web_search({"limit": 5, "query": "hermes-agent.nousresearch.com agent loop iteration budget max_iterations interrupt conversation_l)
+  ┊ result ← {
+  "success": true,
+  "data": {
+    "web": [
+      {
+        "title": "hermes-agent/website/docs/developer-guide/agent-loop.md at main ...",
+        "url": "https://github.com/NousResearch/hermes-age
+
+── API call #4  budget used=4 remaining=2 ──
+  ← assistant content='' tool_calls=['web_search']
+  ┊ tool → web_search({"limit": 5, "query": "deepwiki.com/NousResearch/hermes-agent 4.1-conversation-loop iteration budget interrupt"})
+  ┊ result ← {
+  "success": true,
+  "data": {
+    "web": [
+      {
+        "title": "Hermes Agent Documentation | Hermes Agent",
+        "url": "https://hermes-agent.nousresearch.com/docs/",
+        "description":
+
+── API call #5  budget used=5 remaining=1 ──
+  ← assistant content='' tool_calls=['todo']
+  ┊ tool → todo({"merge": true, "todos": [{"id": "1", "content": "搜索 Hermes Agent conversation_loop 官方源码/文档", "status": "completed"}, {")
+  ┊ result ← {"todos": [{"id": "1", "content": "搜索 Hermes Agent conversation_loop 官方源码/文档", "status": "completed"}, {"id": "2", "content": "核对三个刹车(max_iterations/IterationBudget/budget_grace_call/interrupt) + todo
+
+── API call #6  budget used=6 remaining=0 ──
+  ← assistant content='' tool_calls=['todo']
+  ┊ tool → todo({"merge": true, "todos": [{"id": "2", "content": "核对三个刹车(max_iterations/IterationBudget/budget_grace_call/interrupt) + t)
+  ┊ result ← {"todos": [{"id": "1", "content": "搜索 Hermes Agent conversation_loop 官方源码/文档", "status": "completed"}, {"id": "2", "content": "核对三个刹车(max_iterations/IterationBudget/budget_grace_call/interrupt) + todo
+
+✦ budget/iterations exhausted after tools → grace call (no tools, force final text)
+
+■ exit reason=budget_grace_call api_calls=7 budget=6/6
+
+========================================================================
+  STEP 4 · Role timeline + final_response
+========================================================================
+
+----- ROLE TIMELINE -----
+
+  [0] user
+  [1] assistant
+  [2] user
+  [3] assistant
+  [4] user
+  [5] assistant
+  [6] user
+  [7] user
+  [8] assistant tool_calls=['todo']
+  [9] tool name=todo
+  [10] assistant tool_calls=['web_search', 'web_search']
+  [11] tool name=web_search
+  [12] tool name=web_search
+  [13] assistant tool_calls=['web_search']
+  [14] tool name=web_search
+  [15] assistant tool_calls=['web_search']
+  [16] tool name=web_search
+  [17] assistant tool_calls=['todo']
+  [18] tool name=todo
+  [19] assistant tool_calls=['todo']
+  [20] tool name=todo
+  [21] assistant
+
+----- FINAL RESPONSE -----
+
+<｜｜DSML｜｜tool_calls>
+<｜｜DSML｜｜invoke name="todo">
+<｜｜DSML｜｜parameter name="merge" string="false">true</｜｜DSML｜｜parameter>
+<｜｜DSML｜｜parameter name="todos" string="false">[{"id":"3","content":"输出面试话术，引用搜索结果","status":"completed"}]</｜｜DSML｜｜parameter>
+</｜｜DSML｜｜invoke>
+</｜｜DSML｜｜tool_calls>
+
+----- TODO STORE (agent-level state) -----
+
+[
+  {
+    "id": "1",
+    "content": "搜索 Hermes Agent conversation_loop 官方源码/文档",
+    "status": "completed"
+  },
+  {
+    "id": "2",
+    "content": "核对三个刹车(max_iterations/IterationBudget/budget_grace_call/interrupt) + todo截胡机制",
+    "status": "completed"
+  },
+  {
+    "id": "3",
+    "content": "输出面试话术，引用搜索结果",
+    "status": "pending"
+  }
+]
+
+exit_reason=budget_grace_call api_calls=7 completed=True
+
+========================================================================
+  STEP 5 · Export → demo/exports/agent_loop/
+========================================================================
+  wrote exports\agent_loop\00_workflow.md
+  wrote exports\agent_loop\00_memory_block.md
+  wrote exports\agent_loop\00_user_block.md
+  wrote exports\agent_loop\01_system.md
+  wrote exports\agent_loop\02_user.md
+  wrote exports\agent_loop\02_history.md
+  wrote exports\agent_loop\03_tools_schema.json
+  wrote exports\agent_loop\04_messages.md
+  wrote exports\agent_loop\05_final_response.md
+  wrote exports\agent_loop\06_trace.md
+  wrote exports\agent_loop\07_todo_store.json
+
+========================================================================
+  STEP done · Agent loop demo finished
+========================================================================
+
+查看产物:
+  exports\agent_loop/
+
+Fixtures:
+  fixtures/MEMORY.md
+  fixtures/USER.md
+  fixtures/conversation_history.md
+
+对照:
+  ../hermes_src/tools/todo_tool.py
+  teaching/todo/todo_tool.py
+  teaching/tools/web_search_tool.py  ← web_tools.py schema/返回形
+  ../../01-memory/demo/        ← MEMORY/USER + history 加载方式
+

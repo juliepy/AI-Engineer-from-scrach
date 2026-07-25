@@ -1,0 +1,1 @@
+接着前面聊的主循环：先 todo 写计划，再 web_search 最多两次 （优先 site:hermes-agent.nousresearch.com agent loop 或 site:github.com/NousResearch/hermes-agent conversation_loop），核对三个刹车 + todo 截胡。搜到官方文档/GitHub 后立刻结束搜索、todo 标完成，用中文给面试话术，并引用至少一条结果的标题或 URL。禁止反复换关键词空转搜索。

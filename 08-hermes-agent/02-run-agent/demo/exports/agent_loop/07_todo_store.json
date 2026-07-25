@@ -1,0 +1,17 @@
+[
+  {
+    "id": "1",
+    "content": "搜索 Hermes Agent conversation_loop 官方源码/文档",
+    "status": "completed"
+  },
+  {
+    "id": "2",
+    "content": "核对三个刹车(max_iterations/IterationBudget/budget_grace_call/interrupt) + todo截胡机制",
+    "status": "completed"
+  },
+  {
+    "id": "3",
+    "content": "输出面试话术，引用搜索结果",
+    "status": "pending"
+  }
+]
