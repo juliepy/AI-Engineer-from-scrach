@@ -24,7 +24,8 @@
 ├── notes/
 │   ├── 1_agent_loop.md          # while 循环 / 预算 / 中断
 │   ├── 2_tools_discovery.md     # registry → model_tools → toolsets
-│   └── 3_todo_intercept.md      # agent 级工具范例
+│   ├── 3_todo_intercept.md      # agent 级工具范例
+│   └── 4_run_conversation_callflow.md  # 真源码 run_conversation 意图向 call flow
 ├── demo/                        # ★ 可跑通教学 demo（对齐 01-memory/demo）
 │   ├── README.md
 │   ├── run_agent_loop.py
@@ -213,7 +214,7 @@ tools/*.py 顶层 registry.register()
 | `iteration_budget` 用尽且 grace 已用 | 预算耗尽 |
 | `_interrupt_requested` | 用户 /stop 等 |
 
-对照：`notes/1` 循环 · `notes/2` 发现/分发 · `notes/3` todo 截胡 · `demo/log.txt` / `demo/exports/agent_loop/00_workflow.md` 实跑时序。
+对照：`notes/1` 循环 · `notes/2` 发现/分发 · `notes/3` todo 截胡 · `notes/4` 真源码 call flow · `demo/log.txt` / `demo/exports/agent_loop/00_workflow.md` 实跑时序。
 
 ---
 
@@ -227,6 +228,7 @@ tools/*.py 顶层 registry.register()
 | 4 | `notes/2_tools_discovery.md` | 发现与分发 |
 | 5 | `hermes_src/tools/registry.py` + `todo_tool.py` | 行号对照 |
 | 6 | `notes/3_todo_intercept.md` | agent 级截胡 |
+| 7 | `notes/4_run_conversation_callflow.md` | 真源码意图向 call flow |
 
 ---
 
@@ -243,4 +245,4 @@ tools/*.py 顶层 registry.register()
 | 模块 | 关系 |
 |------|------|
 | [`../01-memory/`](../01-memory/) | turn prologue、compress、cache |
-| [`../02-eval/`](../02-eval/) | 用 Trace 验证循环每一步 |
+| [`../03-eval/`](../03-eval/) | 用 Trace 验证循环每一步 |

@@ -1,0 +1,33 @@
+{
+  "generated_at": "2026-07-30T02:36:39.092270+00:00",
+  "hermes_agent_root": "D:\\workspace\\doc\\面试狂魔\\人工智能面试题\\hermes-agent",
+  "backend": "LocalEnvironment",
+  "source": "tools/environments/local.py (unmodified)",
+  "cwd_start": "D:\\workspace\\doc\\面试狂魔\\人工智能面试题\\AI_coding_interview\\08-hermes-agent\\05-env\\demo",
+  "probes": [
+    {
+      "command": "echo hermes-env-ok",
+      "returncode": 0,
+      "output": "hermes-env-ok",
+      "cwd_after": "D:\\workspace\\doc\\面试狂魔\\人工智能面试题\\AI_coding_interview\\08-hermes-agent\\05-env\\demo"
+    },
+    {
+      "command": "pwd",
+      "returncode": 0,
+      "output": "/d/workspace/doc/面试狂魔/人工智能面试题/AI_coding_interview/08-hermes-agent/05-env/demo",
+      "cwd_after": "D:\\workspace\\doc\\面试狂魔\\人工智能面试题\\AI_coding_interview\\08-hermes-agent\\05-env\\demo"
+    },
+    {
+      "command": "echo HOME=$HOME",
+      "returncode": 0,
+      "output": "HOME=/c/Users/86137",
+      "cwd_after": "D:\\workspace\\doc\\面试狂魔\\人工智能面试题\\AI_coding_interview\\08-hermes-agent\\05-env\\demo"
+    },
+    {
+      "command": "true",
+      "returncode": 0,
+      "output": "",
+      "cwd_after": "D:\\workspace\\doc\\面试狂魔\\人工智能面试题\\AI_coding_interview\\08-hermes-agent\\05-env\\demo"
+    }
+  ]
+}

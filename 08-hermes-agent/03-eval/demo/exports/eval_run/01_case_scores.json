@@ -1,0 +1,120 @@
+[
+  {
+    "case_id": "golden-loop-ok",
+    "passed": true,
+    "exit_reason": "budget_grace_call",
+    "api_calls": 7,
+    "tool_sequence": [
+      "todo",
+      "web_search",
+      "web_search",
+      "web_search",
+      "web_search",
+      "todo",
+      "todo"
+    ],
+    "checks": [
+      {
+        "name": "tools_subset",
+        "ok": true,
+        "detail": "ok"
+      },
+      {
+        "name": "no_forbidden",
+        "ok": true,
+        "detail": "ok"
+      },
+      {
+        "name": "steps",
+        "ok": true,
+        "detail": "api_calls=7 max_steps=10"
+      },
+      {
+        "name": "exit",
+        "ok": true,
+        "detail": "exit_reason='budget_grace_call' allowed=['budget_grace_call', 'completed']"
+      },
+      {
+        "name": "final_text",
+        "ok": true,
+        "detail": "ok"
+      },
+      {
+        "name": "role_alternation",
+        "ok": true,
+        "detail": "ok"
+      },
+      {
+        "name": "system_stable",
+        "ok": true,
+        "detail": "stable across 6 api_requests"
+      },
+      {
+        "name": "tools_frozen",
+        "ok": true,
+        "detail": "frozen ['todo', 'web_search']"
+      },
+      {
+        "name": "budget_consistent",
+        "ok": true,
+        "detail": "ok"
+      }
+    ]
+  },
+  {
+    "case_id": "failure-wrong-tool-cache-break",
+    "passed": false,
+    "exit_reason": "budget_exhausted",
+    "api_calls": 3,
+    "tool_sequence": [
+      "execute_code"
+    ],
+    "checks": [
+      {
+        "name": "tools_subset",
+        "ok": false,
+        "detail": "missing expected tools: ['todo', 'web_search']"
+      },
+      {
+        "name": "no_forbidden",
+        "ok": false,
+        "detail": "forbidden used: ['execute_code']"
+      },
+      {
+        "name": "steps",
+        "ok": true,
+        "detail": "api_calls=3 max_steps=4"
+      },
+      {
+        "name": "exit",
+        "ok": false,
+        "detail": "exit_reason='budget_exhausted' allowed=['budget_grace_call', 'completed']"
+      },
+      {
+        "name": "final_text",
+        "ok": false,
+        "detail": "empty final_response"
+      },
+      {
+        "name": "role_alternation",
+        "ok": false,
+        "detail": "messages[5]: consecutive role='assistant' (prev also 'assistant')"
+      },
+      {
+        "name": "system_stable",
+        "ok": false,
+        "detail": "api#2 system fingerprint 'chars:180' != 'chars:100'"
+      },
+      {
+        "name": "tools_frozen",
+        "ok": false,
+        "detail": "api#2 tools ['execute_code', 'todo', 'web_search'] != ['todo', 'web_search']"
+      },
+      {
+        "name": "budget_consistent",
+        "ok": false,
+        "detail": "exhausted but budget_used 2 < max 3"
+      }
+    ]
+  }
+]

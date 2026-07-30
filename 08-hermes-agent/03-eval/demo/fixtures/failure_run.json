@@ -1,0 +1,68 @@
+{
+  "id": "synthetic:failure_wrong_tool_cache_break",
+  "source": "teaching-synthetic",
+  "model": "synthetic",
+  "exit_reason": "budget_exhausted",
+  "api_calls": 3,
+  "budget_used": 2,
+  "budget_max": 3,
+  "final_response": "",
+  "messages": [
+    {"role": "system", "content": "You are Hermes."},
+    {"role": "user", "content": "Search the docs then summarize."},
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_bad_1",
+          "type": "function",
+          "function": {"name": "execute_code", "arguments": "{\"code\": \"print(1)\"}"}
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "execute_code",
+      "tool_call_id": "call_bad_1",
+      "content": "{\"ok\": true}"
+    },
+    {"role": "assistant", "content": "still thinking…"},
+    {"role": "assistant", "content": "more text without tool — role break"}
+  ],
+  "trace": [
+    {
+      "api_call": 1,
+      "kind": "api_request",
+      "tool_names": ["todo", "web_search"],
+      "system_fingerprint": "chars:100"
+    },
+    {
+      "api_call": 1,
+      "kind": "api_response",
+      "tool_calls": [{"name": "execute_code"}]
+    },
+    {
+      "api_call": 2,
+      "kind": "api_request",
+      "tool_names": ["todo", "web_search", "execute_code"],
+      "system_fingerprint": "chars:180"
+    },
+    {
+      "api_call": 2,
+      "kind": "api_response",
+      "tool_calls": []
+    },
+    {
+      "api_call": 3,
+      "kind": "api_request",
+      "tool_names": ["todo", "web_search", "execute_code"],
+      "system_fingerprint": "chars:180"
+    },
+    {
+      "api_call": 3,
+      "kind": "api_response",
+      "tool_calls": []
+    }
+  ]
+}

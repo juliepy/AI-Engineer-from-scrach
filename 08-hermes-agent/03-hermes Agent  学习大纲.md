@@ -67,35 +67,39 @@ flowchart TD
 
 **学习目标**：截断 / 压缩 / 长期记忆检索；Prompt Cache 为什么不能中途改上下文。
 
-**教材目录**：[`04.1-memory/`](./04.1-memory/)——notebook 里 **直接拷贝可执行源码副本**（边 Run 边讲实现）；`hermes_src/` 对照真文件行号。概念长文：[`02-memory.md`](./02-memory.md)。
+**教材目录**：
+- [`01-memory/`](./01-memory/)——notebook + 广谱 Memory/压缩/cache（目录名亦作 `04.1-memory` 旧称）
+- [`07-mem-provider/`](./07-mem-provider/)——**结构对齐 05-env**：聚焦 turn **存**（`sync_turn`）、对话 **取**（`prefetch`→user 注入）、相关 **prompt**
+- 概念长文：[`02-memory.md`](./02-memory.md)
 
 **源码精读清单**
 - `agent/memory_provider.py`：`MemoryProvider` ABC（`sync_turn` / `prefetch` / `shutdown`）。
-- `agent/memory_manager.py`：多 provider 编排。
+- `agent/memory_manager.py`：单外部 provider 编排；`build_memory_context_block`。
+- `turn_context` → `prefetch_all`；`conversation_loop` 注入 user；`turn_finalizer` → `_sync_external_memory_for_turn`。
+- Prompt：`MEMORY_GUIDANCE`、`<memory-context>` note、`_MEMORY_REVIEW_PROMPT`（见 `07-mem-provider/notes/04`）。
 - 压缩模块（context compression）：唯一允许改上下文的场景。
 - 根 `AGENTS.md`「Prompt Caching Must Not Break」小节。
 
-**代码目录结构**（本步骤要读的文件）
+**代码目录结构**（Provider 接线优先读这个）
 
 ```text
-04.1-memory/
+07-mem-provider/
 ├── README.md
-├── hermes_src/                 # 真源码剪枝（对照）
-└── notebooks/                  # 每章大 code cell = 可执行源码副本 + 演示
-    ├── 1_memory_layers.ipynb   # MemoryStore 双态
-    ├── 2_memory_provider.ipynb
-    ├── 3_memory_manager.ipynb
-    ├── 4_context_compression.ipynb  # + DeepSeek
-    ├── 5_prompt_caching.ipynb
-    └── 6_end_to_end.ipynb           # + DeepSeek
+├── notes/          # 01 ABC → 02 prefetch → 03 sync → 04 prompts
+├── demo/           # FakeProvider + 真 MemoryManager
+└── hermes_src/     # memory_*.py + turn/inject/sync/prompt excerpts
 ```
 
+广谱 notebook 仍见 [`01-memory/`](./01-memory/)。
+
 **动手**
-- 按 `04.1-memory/README.md` 打开 notebooks，先 Run「源码副本」cell，再跑演示 cell 讲解。
+- 跑 `07-mem-provider/demo/run_mem_provider.py`；对照 notes/02–04。
+- 可选：按 `01-memory/README.md` 跑 notebooks。
 - 写一份「Context 溢出处理」策略笔记；画「缓存命中 vs 中途失效」对比图。
 
 **面试会讲**
 - Per-conversation prompt caching is sacred：任何中途 mutate 上下文 / 换 toolset / 重建 system prompt 都会击穿缓存、放大成本，只有压缩是例外。
+- 取：prefetch 进 **user message**（不进 SP）；存：`sync_all` 异步 + interrupted 跳过；写什么由 `MEMORY_GUIDANCE` 约束。
 - 记忆 = 短期(近轮) + 摘要 + 长期检索三层。
 
 ---
@@ -104,16 +108,21 @@ flowchart TD
 
 **学习目标**：评测维度设计 + 可观测性；行为契约测试 vs 变更检测测试。
 
-**教材目录**：[`02-eval/`](./02-eval/)——`hermes_src/` 源码剪枝 + `notes/` 讲稿对照。
+**教材目录**：[`03-eval/`](./03-eval/)——`hermes_src/` 源码剪枝 + `notes/` 讲稿 + `demo/` 离线打分（目录序：`01-memory` → `02-run-agent` → `03-eval`）。
 
 **代码目录结构**（本步骤要读/要跑的文件）
 
 ```text
-02-eval/
+03-eval/
 ├── README.md
 ├── notes/
 │   ├── 1_eval_invariants.md      # 不变量 vs 变更检测
-│   └── 2_logging_trace.md        # session_tag / 日志分流
+│   ├── 2_logging_trace.md        # session_tag / 日志分流
+│   └── 3_eval_harness.md         # 离线打分 + RCA
+├── demo/                         # ★ 可跑通（无需 API Key）
+│   ├── run_eval_suite.py
+│   ├── fixtures/                 # eval_cases.jsonl + golden/failure runs
+│   └── teaching/{invariants,logging,harness}/
 └── hermes_src/
     ├── AGENTS.md                 # 「Don't write change-detector tests」
     ├── hermes_logging.py         # agent.log / errors.log / gateway.log
@@ -128,13 +137,13 @@ flowchart TD
 
 ### 2.1 Eval / Benchmark
 - 维度：完成率 / 步数 / 成本 / 工具选对率 / 忠实度。
-- 源码：`02-eval/hermes_src/scripts/run_tests.sh`、`tests/agent/`；`AGENTS.md`「Don't write change-detector tests」。
-- **动手**：给一个任务建 20~50 条评测集 + 自动跑分脚本；至少写 1 条「不变量断言」而非「快照断言」。
+- 源码：`03-eval/hermes_src/scripts/run_tests.sh`、`tests/agent/`；`AGENTS.md`「Don't write change-detector tests」。
+- **动手**：跑 `03-eval/demo/`；扩 `eval_cases.jsonl` 到 20~50 条；至少写 1 条「不变量断言」而非「快照断言」。
 
 ### 2.2 Observability / Trace
 - 概念：trace_id / span；每个 Tool/LLM/检索记什么；Trace 查因果、Metrics 看 SLO、Log 查细节。
-- 源码：`02-eval/hermes_src/hermes_logging.py`、`hermes logs` 命令。
-- **动手**：接入 LangFuse（或自建 span），录一条完整 Trace 做一次根因分析。
+- 源码：`03-eval/hermes_src/hermes_logging.py`、`hermes logs` 命令；demo `teaching/logging/`。
+- **动手**：跑 demo 看 `03_trace_rca.md`；可选再接 LangFuse。
 
 **面试会讲**
 - 好测试断言「数据之间的关系（不变量）」，不冻结当前值（模型列表 / 配置版本号 / 枚举数量都会变，快照测试是反模式）。
@@ -189,33 +198,82 @@ flowchart TD
 
 **学习目标**：Agent 的「执行环境」如何抽象；本地 / 容器 / SSH / 云后端的统一接口与取舍。
 
-**源码精读清单**
-- `tools/environments/`：`local` / `docker` / `ssh` / `modal` / `daytona` / `singularity` 各后端如何抽象「执行环境」。
-- `base.py`：统一接口（先读，再对照各后端实现）。
+**教材目录**：[`05-env/`](./05-env/)——`notes/` 真源码讲稿 + `hermes_src/tools/environments/` **完整后端拷贝** + `terminal_tool.FACTORY.py` 工厂摘录。完整对照亦见 [`hermes-study/tools/environments/`](./hermes-study/tools/environments/)。
 
-**代码目录结构**（本步骤要读/要跑的文件）
+**源码精读清单**
+- `tools/environments/base.py`：`BaseEnvironment.execute` / snapshot / CWD。
+- `local.py` / `docker.py`：无隔离 vs `_BASE_SECURITY_ARGS`。
+- `file_sync.py` + `ssh.py` / `modal*.py` / `daytona.py`：端云文件到位。
+- `terminal_tool.py` → `_get_env_config` / `_create_environment`（教材内为 FACTORY 摘录）。
+
+**代码目录结构**（本步骤要读的文件）
 
 ```text
-hermes-agent/
-└── tools/environments/       # 执行环境后端抽象层
-    ├── base.py               # 环境抽象基类 —— 先读这个，理解统一接口
-    ├── local.py              # 本地进程执行（无隔离，对照基线）
-    ├── docker.py             # Docker 容器隔离
-    ├── ssh.py                # 远程 SSH 执行
-    ├── modal.py              # Modal 云沙箱
-    ├── managed_modal.py      # 托管 Modal 变体
-    ├── daytona.py            # Daytona 云开发环境
-    ├── singularity.py        # HPC / Singularity 容器
-    └── file_sync.py          # 环境间文件同步
+05-env/
+├── README.md
+├── notes/                 # 01 base → 02 local/docker → 03 remote → 04 factory
+└── hermes_src/tools/
+    ├── terminal_tool.FACTORY.py
+    ├── env_probe.py
+    └── environments/      # base/local/docker/ssh/modal/daytona/singularity/file_sync
 ```
 
 **动手**
-- 画一张「执行环境后端对比表」：隔离强度 / 启动延迟 / 适用场景 / Hermes 接入方式。
-- 本地分别跑通 `local` 与 `docker` 后端，对比同一条 terminal 命令的行为差异。
+- 按 `05-env/README.md` 精读 `hermes_src`，对照 notes。
+- 真 Hermes CLI 切 `TERMINAL_ENV=local|docker`，对 `execute` / `_create_environment` 打断点。
+- 产出「后端对比表」（隔离 / 延迟 / 文件可见性 / 场景）。
 
 **面试会讲**
-- 环境抽象 = Runtime 与具体执行后端解耦；端云协同靠同一套接口切 local / 云沙箱。
-- 选后端看场景：开发调试用 local，不可信代码用 docker/云，远程机器用 ssh。
+- 环境抽象 = Runtime 与执行后端解耦；端云协同靠同一 `execute()` + bind/sync 策略。
+- 选后端：调试 local，不可信代码 docker/云，远程机 ssh。
+
+---
+
+## 扩展：Cron（定时任务，可与模块三/四并行）
+
+**学习目标**：无人值守调度——job 存哪、谁 tick、怎么跑一轮隔离 Agent、结果投到哪。
+
+**教材目录**：[`06-cron/`](./06-cron/)——结构对齐 [`05-env/`](./05-env/)：`notes/` + `hermes_src/cron/` + `demo/`。
+
+**源码精读清单**
+- `cron/jobs.py`：`jobs.json`、`parse_schedule`、`create_job`、`get_due_jobs`
+- `cron/scheduler.py`：`tick` / `run_job`（`skip_memory`、disabled toolsets、投递）
+- `tools/cronjob_tools.py`：压缩 `cronjob(action=…)` + prompt 扫描
+
+**动手**：跑 `06-cron/demo/run_cron_jobs.py`；可选在真 gateway 上对 `tick` 打断点。
+
+**面试会讲**：JSON store ≠ 系统 crontab；fire 靠 gateway 分钟 tick；cron 会话 skip_memory + 禁交互工具 + Home 投递。
+
+---
+
+## 扩展：Gateway（消息网关，建议在模块三之后）
+
+**学习目标**：多渠道入站如何变成同一套 Agent Turn——Session Key 拉历史、双层忙时守卫、Home/Cron 投递。
+
+**教材目录**：[`08-gateway/`](./08-gateway/)——**结构对齐 [`04-prompt/`](./04-prompt/)**：`notes/` + `catalog/` + `hermes_src/` + `scripts/`。鸟瞰见 [`01-arch.md`](./01-arch.md) §5。
+
+**源码精读清单**
+- `gateway/platforms/base.py`：`handle_message`（`_active_sessions` / `_pending_messages` / bypass）
+- `gateway/run.py`：`GatewayRunner._handle_message`、`_handle_message_with_agent`、`start_gateway`
+- `gateway/session.py`：`build_session_key`、`SessionStore.get_or_create_session`
+- `gateway/delivery.py` + `config.py`：`DeliveryRouter`、`HomeChannel`
+- `hermes_cli/commands.py`：`should_bypass_active_session`
+- `platforms/ADDING_A_PLATFORM.md`：新渠道走 plugin，不改 core
+
+**代码目录结构**
+
+```text
+08-gateway/
+├── README.md
+├── notes/          # 0 地图 → 1 热路径 → 2 session → 3 双守卫 → 4 delivery/cron
+├── catalog/        # 00_index + 01–08 主题索引（对照 excerpts）
+├── hermes_src/     # 全文拷贝 + run.py/base.py 等巨文件摘录
+└── scripts/extract_gateway_map.py
+```
+
+**动手**：按 `08-gateway/README.md` 读 notes/catalog；真仓对 `handle_message` / `_handle_message` 打断点。
+
+**面试会讲**：Gateway = MessageEvent + Session Key 拉历史 + **两层守卫（控制命令必须 bypass）** + 同进程 cron/Delivery；按 session 缓存 AIAgent 保 prompt cache。
 
 ---
 

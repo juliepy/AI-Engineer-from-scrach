@@ -1,0 +1,22 @@
+[
+  {
+    "id": "golden-loop-ok",
+    "run_fixture": "from_02_agent_loop.json",
+    "expected_tools": ["todo", "web_search"],
+    "forbidden_tools": ["execute_code"],
+    "max_steps": 10,
+    "allowed_exits": ["completed", "budget_grace_call"],
+    "require_final_text": true,
+    "notes": "正例：02 实跑轨迹。断言工具子集 + 允许 grace 收尾（不锁精确序列/步数快照）"
+  },
+  {
+    "id": "failure-wrong-tool-cache-break",
+    "run_fixture": "failure_run.json",
+    "expected_tools": ["todo", "web_search"],
+    "forbidden_tools": ["execute_code"],
+    "max_steps": 4,
+    "allowed_exits": ["completed", "budget_grace_call"],
+    "require_final_text": true,
+    "notes": "负例（合成）：错工具 + role 连发 + system/tools 漂移 + 无 grace。应 FAIL 并产出 RCA"
+  }
+]

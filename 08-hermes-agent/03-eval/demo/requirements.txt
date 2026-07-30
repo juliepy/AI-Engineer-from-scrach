@@ -1,0 +1,2 @@
+# 契约测试层（对齐 Hermes pytest 习惯）；打分脚本本身仍是 stdlib。
+pytest>=8,<9

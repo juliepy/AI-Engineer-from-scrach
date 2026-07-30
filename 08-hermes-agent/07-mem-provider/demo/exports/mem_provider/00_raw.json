@@ -1,0 +1,24 @@
+{
+  "generated_at": "2026-07-30T02:49:58.352164+00:00",
+  "hermes_agent_root": "D:\\workspace\\doc\\面试狂魔\\人工智能面试题\\hermes-agent",
+  "source": "agent/memory_manager.py + FakeProvider",
+  "prefetch_raw": "User previously said they like short answers. (query='What did I say about reply length?')",
+  "fenced_user_injection": "<memory-context>\n[System note: The following is recalled memory context, NOT new user input. Treat as authoritative reference data — this is the agent's persistent memory and should inform all responses.]\n\nUser previously said they like short answers. (query='What did I say about reply length?')\n</memory-context>",
+  "api_user_message": "What did I say about reply length?\n\n<memory-context>\n[System note: The following is recalled memory context, NOT new user input. Treat as authoritative reference data — this is the agent's persistent memory and should inform all responses.]\n\nUser previously said they like short answers. (query='What did I say about reply length?')\n</memory-context>",
+  "system_prompt_block": "## Fake memory backend\nUse recalled facts from <memory-context>.",
+  "synced": [
+    {
+      "user": "What did I say about reply length?",
+      "assistant": "You prefer concise replies.",
+      "session_id": "demo-sess"
+    }
+  ],
+  "queued_prefetch": [
+    "What did I say about reply length?"
+  ],
+  "prompts_to_read": [
+    "agent/prompt_builder.py::MEMORY_GUIDANCE",
+    "agent/background_review.py::_MEMORY_REVIEW_PROMPT",
+    "build_memory_context_block system note"
+  ]
+}

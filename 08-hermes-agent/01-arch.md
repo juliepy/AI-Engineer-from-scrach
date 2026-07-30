@@ -419,6 +419,10 @@ flowchart TB
 - **不是**一个万能适配器通吃所有渠道；每个集成单独配置（`hermes setup gateway`）。  
 - 拉取方式因平台而异：webhook、轮询、WebSocket 等。
 
+### 5.6 源码精读教材
+
+对照源码学习包（结构对齐 `04-prompt`）：[`08-gateway/`](./08-gateway/)——消息热路径、双守卫、Session Key、Delivery/Cron、平台 Plugin。
+
 ---
 
 ## 6. Memory（三种形态）
