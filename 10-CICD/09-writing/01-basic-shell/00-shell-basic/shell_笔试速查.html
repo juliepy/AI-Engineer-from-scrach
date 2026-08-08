@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shell / Bash 笔试速查</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #fff;
+    --ink: #1a1d23;
+    --muted: #5c6370;
+    --accent: #0b6e4f;
+    --code-bg: #0f1419;
+    --code: #e6edf3;
+    --warn: #9a3412;
+    --ok: #166534;
+    --border: #d8dde6;
+    --chip: #e8f5ef;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 15px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(900px 400px at 10% -10%, #d9f2e7 0%, transparent 55%),
+      radial-gradient(700px 360px at 100% 0%, #e8eef8 0%, transparent 50%),
+      var(--bg);
+  }
+  header {
+    position: sticky; top: 0; z-index: 10;
+    backdrop-filter: blur(8px);
+    background: rgba(246,247,249,.92);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+  }
+  header h1 {
+    margin: 0 0 8px;
+    font-size: 1.25rem;
+    letter-spacing: .02em;
+  }
+  nav {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  nav a {
+    text-decoration: none;
+    color: var(--accent);
+    background: var(--chip);
+    border: 1px solid #c5e6d6;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: .82rem;
+  }
+  nav a:hover { background: #d4f0e3; }
+  main {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 16px;
+    display: grid;
+    gap: 12px;
+  }
+  section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  section h2 {
+    margin: 0 0 8px;
+    font-size: 1rem;
+    color: var(--accent);
+    border-left: 3px solid var(--accent);
+    padding-left: 8px;
+  }
+  .note {
+    color: var(--muted);
+    font-size: .9rem;
+    margin: 0 0 8px;
+  }
+  pre, code {
+    font-family: ui-monospace, "Cascadia Code", Consolas, "Courier New", monospace;
+    font-size: .84rem;
+  }
+  pre {
+    margin: 0;
+    background: var(--code-bg);
+    color: var(--code);
+    padding: 10px 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+    white-space: pre;
+    line-height: 1.4;
+  }
+  .c { color: #8b949e; }
+  .k { color: #79c0ff; }
+  .s { color: #a5d6ff; }
+  .ok { color: #3fb950; }
+  .bad { color: #ff7b72; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .9rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #f0f3f7; }
+  td code {
+    background: #eef1f6;
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  .wrong { color: var(--warn); font-weight: 600; }
+  .right { color: var(--ok); font-weight: 600; }
+  .pill {
+    display: inline-block;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #9a3412;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: .85rem;
+    margin-bottom: 8px;
+  }
+  footer {
+    max-width: 980px;
+    margin: 0 auto 24px;
+    padding: 0 16px;
+    color: var(--muted);
+    font-size: .9rem;
+  }
+  @media print {
+    body { background: #fff; }
+    header { position: static; background: #fff; }
+    nav { display: none; }
+    section { break-inside: avoid; box-shadow: none; }
+    pre { white-space: pre-wrap; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Shell / Bash 笔试速查</h1>
+  <nav>
+    <a href="#skel">骨架</a>
+    <a href="#var">变量</a>
+    <a href="#cond">条件</a>
+    <a href="#loop">循环</a>
+    <a href="#case">case</a>
+    <a href="#fn">函数</a>
+    <a href="#call">互调</a>
+    <a href="#redir">重定向</a>
+    <a href="#cmd">高频命令</a>
+    <a href="#tmpl">模板</a>
+    <a href="#pit">踩坑</a>
+  </nav>
+</header>
+
+<main>
+  <section id="skel">
+    <h2>骨架</h2>
+<pre><span class="c">#!/usr/bin/env bash</span>
+<span class="k">set</span> -euo pipefail          <span class="c"># 出错停 / 未定义变量报错 / 管道失败传递</span>
+bash script.sh             <span class="c"># 直接跑</span>
+chmod +x s.sh &amp;&amp; ./s.sh    <span class="c"># 依赖 shebang</span>
+source s.sh  <span class="c">或</span>  . s.sh    <span class="c"># 当前 shell 执行，变量留下</span></pre>
+  </section>
+
+  <section id="var">
+    <h2>变量</h2>
+<pre>a=100                      <span class="c"># 等号两边不能空格</span>
+echo <span class="s">"$a"</span>  /  <span class="s">"${a}_x"</span>     <span class="c"># 取值；拼接用 ${}</span>
+<span class="s">"..."</span>  变量展开
+<span class="s">'...'</span>  原样
+export PATH=...            <span class="c"># 环境变量，子进程可继承</span>
+DEBUG=1 ./run.sh           <span class="c"># 临时环境变量，只影响本次</span>
+
+$0 脚本名  $1第1参  $#个数  <span class="s">"$@"</span>全部参(推荐)  $?退出码  $$PID
+read -r x                  <span class="c"># 读一行</span></pre>
+  </section>
+
+  <section id="cond">
+    <h2>条件</h2>
+    <div class="pill">空格铁律：<code>[</code> 后、<code>]</code> 前、运算符两侧都要有空格；变量加引号</div>
+<pre><span class="ok">[ "$a" = 1 ]</span>               <span class="c"># 对</span>
+<span class="bad">[$a=1]</span>                     <span class="c"># 错</span>
+[[ ... ]]                  <span class="c"># bash 扩展，更安全，推荐</span>
+
+字符串:  =  !=  -z空  -n非空
+数值:    -eq -ne -gt -ge -lt -le     <span class="c">（[ ]里不要用 &gt; &lt;，会被当重定向）</span>
+文件:    -f文件 -d目录 -x可执行 -r可读 -e存在
+
+<span class="k">if</span> [ <span class="s">"$n"</span> -gt 100 ]; <span class="k">then</span>
+  echo big
+<span class="k">elif</span> [ <span class="s">"$n"</span> -eq 100 ]; <span class="k">then</span>
+  echo equal
+<span class="k">else</span>
+  echo small
+<span class="k">fi</span>
+
+[ -f a ] &amp;&amp; [ -r a ]       <span class="c"># 与</span>
+[ -f a ] || [ -f b ]       <span class="c"># 或</span>
+[[ -f a &amp;&amp; -r a ]]         <span class="c"># [[ ]] 里可用 &amp;&amp; ||</span></pre>
+  </section>
+
+  <section id="loop">
+    <h2>循环</h2>
+<pre><span class="k">while</span> [ <span class="s">"$i"</span> -le 3 ]; <span class="k">do</span> ...; i=$((i+1)); <span class="k">done</span>     <span class="c"># 条件真则执行</span>
+<span class="k">until</span> [ -f /tmp/ready ]; <span class="k">do</span> sleep 1; <span class="k">done</span>           <span class="c"># 条件假则执行</span>
+<span class="k">for</span> f <span class="k">in</span> *.log; <span class="k">do</span> ...; <span class="k">done</span>
+<span class="k">for</span> i <span class="k">in</span> {1..5}; <span class="k">do</span> ...; <span class="k">done</span>
+<span class="k">for</span> ((i=0; i&lt;3; i++)); <span class="k">do</span> ...; <span class="k">done</span>
+break 跳出   continue 跳过本轮</pre>
+  </section>
+
+  <section id="case">
+    <h2>case</h2>
+<pre><span class="k">case</span> <span class="s">"$1"</span> <span class="k">in</span>
+  start|START) echo starting ;;
+  stop)        echo stopping ;;
+  *)           echo <span class="s">"usage: $0 {start|stop}"</span>; exit 1 ;;
+<span class="k">esac</span>
+<span class="c"># case/esac  分支)  结束;;  *兜底  |或</span></pre>
+  </section>
+
+  <section id="fn">
+    <h2>函数</h2>
+<pre>greet() {
+  <span class="k">local</span> name=<span class="s">"$1"</span>          <span class="c"># local 仅函数内；无 local 变全局</span>
+  echo <span class="s">"hello, $name"</span>
+}
+greet <span class="s">"qa"</span>
+<span class="c"># 函数内 $1 是函数参数，和脚本 $1 互不影响</span>
+<span class="c"># return N = 退出码；输出用 echo，接收： sum=$(add 3 5)</span></pre>
+  </section>
+
+  <section id="call">
+    <h2>脚本互调</h2>
+    <table>
+      <tr><th>写法</th><th>进程</th><th>变量</th><th>场景</th></tr>
+      <tr><td><code>./b.sh</code></td><td>新进程</td><td>不共享</td><td>独立任务</td></tr>
+      <tr><td><code>source b.sh</code> / <code>. b.sh</code></td><td>同进程</td><td>共享</td><td>加载配置</td></tr>
+      <tr><td><code>./b.sh "$var"</code></td><td>新进程</td><td>靠参数传</td><td>传特定数据</td></tr>
+      <tr><td><code>./bin/tool --in x.json</code></td><td>新进程</td><td>—</td><td>调可执行文件</td></tr>
+    </table>
+  </section>
+
+  <section id="redir">
+    <h2>重定向 / 管道</h2>
+<pre>cmd &gt; out.txt              <span class="c"># 覆盖 stdout</span>
+cmd &gt;&gt; out.txt             <span class="c"># 追加</span>
+cmd 2&gt; err.txt             <span class="c"># stderr</span>
+cmd &gt; all.txt 2&gt;&amp;1         <span class="c"># stdout+stderr 合并</span>
+cmd | grep error
+cmd1 &amp;&amp; cmd2               <span class="c"># 成功才执行下一句</span>
+cmd1 || cmd2               <span class="c"># 失败才执行下一句</span></pre>
+  </section>
+
+  <section id="cmd">
+    <h2>高频命令（CI / 排障）</h2>
+<pre>grep -R <span class="s">"FAIL"</span> logs/ | head
+find . -name <span class="s">"*.xml"</span> -mtime -1
+ps aux | grep pytest
+curl -fsS http://localhost:8080/health
+jq <span class="s">'.status'</span> result.json
+bash -n script.sh          <span class="c"># 只做语法检查</span></pre>
+  </section>
+
+  <section id="tmpl">
+    <h2>完整模板：跑测试汇总</h2>
+<pre><span class="c">#!/usr/bin/env bash</span>
+<span class="k">set</span> -euo pipefail
+TEST_DIR=<span class="s">"${1:-./tests}"</span>
+REPORT=<span class="s">"report_$(date +%Y%m%d_%H%M%S).txt"</span>
+pass=0; fail=0
+run_one() {
+  <span class="k">local</span> name=<span class="s">"$1"</span>
+  <span class="k">if</span> bash <span class="s">"$name"</span>; <span class="k">then</span>
+    echo <span class="s">"[PASS] $name"</span> | tee -a <span class="s">"$REPORT"</span>; pass=$((pass+1))
+  <span class="k">else</span>
+    echo <span class="s">"[FAIL] $name"</span> | tee -a <span class="s">"$REPORT"</span>; fail=$((fail+1))
+  <span class="k">fi</span>
+}
+[ -d <span class="s">"$TEST_DIR"</span> ] || { echo <span class="s">"no dir"</span> &gt;&amp;2; exit 1; }
+<span class="k">for</span> t <span class="k">in</span> <span class="s">"$TEST_DIR"</span>/*.sh; <span class="k">do</span>
+  [ -e <span class="s">"$t"</span> ] || <span class="k">continue</span>
+  run_one <span class="s">"$t"</span>
+<span class="k">done</span>
+echo <span class="s">"pass=$pass fail=$fail"</span> | tee -a <span class="s">"$REPORT"</span>
+[ <span class="s">"$fail"</span> -eq 0 ]          <span class="c"># 有失败则非0，接 CI</span></pre>
+  </section>
+
+  <section id="pit">
+    <h2>常见错误对照</h2>
+    <table>
+      <tr><th class="wrong">错</th><th class="right">对</th></tr>
+      <tr><td><code>[$a=1]</code></td><td><code>[ "$a" = 1 ]</code></td></tr>
+      <tr><td><code>a = 100</code></td><td><code>a=100</code></td></tr>
+      <tr><td><code>if [$a=1] then</code></td><td><code>if [ "$a" = 1 ]; then</code></td></tr>
+      <tr><td><code>$1</code> 含空格炸掉</td><td>始终 <code>"$1"</code> / <code>"$@"</code></td></tr>
+      <tr><td><code>[ $n &gt; 5 ]</code></td><td><code>[ "$n" -gt 5 ]</code> 或 <code>((n &gt; 5))</code></td></tr>
+    </table>
+  </section>
+</main>
+
+<footer>
+  <strong>一句话：</strong> Shell = 变量 + if/while/case + 函数 + 管道，把 Linux 命令粘成自动化。
+</footer>
+</body>
+</html>

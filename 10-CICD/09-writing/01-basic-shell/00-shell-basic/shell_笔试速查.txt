@@ -1,0 +1,136 @@
+================================================================================
+Shell / Bash 笔试速查
+================================================================================
+
+【骨架】
+  #!/usr/bin/env bash
+  set -euo pipefail          # 出错停 / 未定义变量报错 / 管道失败传递
+  bash script.sh             # 直接跑
+  chmod +x s.sh && ./s.sh    # 依赖 shebang
+  source s.sh  或  . s.sh    # 当前 shell 执行，变量留下
+
+
+【变量】
+  a=100                      # 等号两边不能空格
+  echo "$a"  /  "${a}_x"     # 取值；拼接用 ${}
+  "..."  变量展开
+  '...'  原样
+  export PATH=...            # 环境变量，子进程可继承
+  DEBUG=1 ./run.sh           # 临时环境变量，只影响本次
+
+  $0 脚本名  $1第1参  $#个数  "$@"全部参(推荐)  $?退出码  $$PID
+  read -r x                  # 读一行
+
+
+【条件】  空格铁律：[ 后、] 前、运算符两侧都要有空格；变量加引号
+  [ "$a" = 1 ]               # 对
+  [$a=1]                     # 错
+  [[ ... ]]                  # bash 扩展，更安全，推荐
+
+  字符串:  =  !=  -z空  -n非空
+  数值:    -eq -ne -gt -ge -lt -le     （[ ]里不要用 > <，会被当重定向）
+  文件:    -f文件 -d目录 -x可执行 -r可读 -e存在
+
+  if [ "$n" -gt 100 ]; then
+    echo big
+  elif [ "$n" -eq 100 ]; then
+    echo equal
+  else
+    echo small
+  fi
+
+  [ -f a ] && [ -r a ]       # 与
+  [ -f a ] || [ -f b ]       # 或
+  [[ -f a && -r a ]]         # [[ ]] 里可用 && ||
+
+
+【循环】
+  while [ "$i" -le 3 ]; do ...; i=$((i+1)); done     # 条件真则执行
+  until [ -f /tmp/ready ]; do sleep 1; done           # 条件假则执行
+  for f in *.log; do ...; done
+  for i in {1..5}; do ...; done
+  for ((i=0; i<3; i++)); do ...; done
+  break 跳出   continue 跳过本轮
+
+
+【case】
+  case "$1" in
+    start|START) echo starting ;;
+    stop)        echo stopping ;;
+    *)           echo "usage: $0 {start|stop}"; exit 1 ;;
+  esac
+  # case/esac  分支)  结束;;  *兜底  |或
+
+
+【函数】
+  greet() {
+    local name="$1"          # local 仅函数内；无 local 变全局
+    echo "hello, $name"
+  }
+  greet "qa"
+  # 函数内 $1 是函数参数，和脚本 $1 互不影响
+  # return N = 退出码；输出用 echo，接收： sum=$(add 3 5)
+
+
+【脚本互调】
+  ./b.sh           新进程，变量不共享
+  source b.sh      同进程，变量共享（加载配置）
+  ./b.sh "$var"    新进程，靠参数传
+  ./bin/tool --in x.json     # 调可执行文件同理
+
+
+【重定向 / 管道】
+  cmd > out.txt              # 覆盖 stdout
+  cmd >> out.txt             # 追加
+  cmd 2> err.txt             # stderr
+  cmd > all.txt 2>&1         # stdout+stderr 合并
+  cmd | grep error
+  cmd1 && cmd2               # 成功才执行下一句
+  cmd1 || cmd2               # 失败才执行下一句
+
+
+【高频命令（CI/排障）】
+  grep -R "FAIL" logs/ | head
+  find . -name "*.xml" -mtime -1
+  ps aux | grep pytest
+  curl -fsS http://localhost:8080/health
+  jq '.status' result.json
+  bash -n script.sh          # 只做语法检查
+
+
+【完整模板：跑测试汇总】
+  #!/usr/bin/env bash
+  set -euo pipefail
+  TEST_DIR="${1:-./tests}"
+  REPORT="report_$(date +%Y%m%d_%H%M%S).txt"
+  pass=0; fail=0
+  run_one() {
+    local name="$1"
+    if bash "$name"; then
+      echo "[PASS] $name" | tee -a "$REPORT"; pass=$((pass+1))
+    else
+      echo "[FAIL] $name" | tee -a "$REPORT"; fail=$((fail+1))
+    fi
+  }
+  [ -d "$TEST_DIR" ] || { echo "no dir" >&2; exit 1; }
+  for t in "$TEST_DIR"/*.sh; do
+    [ -e "$t" ] || continue
+    run_one "$t"
+  done
+  echo "pass=$pass fail=$fail" | tee -a "$REPORT"
+  [ "$fail" -eq 0 ]          # 有失败则非0，接CI
+
+
+【常见错误对照】
+  错                     对
+  [$a=1]                 [ "$a" = 1 ]
+  a = 100                a=100
+  if [$a=1] then         if [ "$a" = 1 ]; then
+  $1 含空格炸掉           始终 "$1" / "$@"
+  [ $n > 5 ]             [ "$n" -gt 5 ]  或  ((n > 5))
+
+
+【一句话】
+  Shell = 变量 + if/while/case + 函数 + 管道，把 Linux 命令粘成自动化。
+
+================================================================================

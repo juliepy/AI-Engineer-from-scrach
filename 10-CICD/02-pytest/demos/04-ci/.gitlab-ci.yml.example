@@ -1,0 +1,33 @@
+# 学习用示意：复制到真实仓库时可改名为 .gitlab-ci.yml
+# 本地先用 README 里的 pytest 命令模拟 Job script
+
+stages:
+  - test
+
+mr_smoke:
+  stage: test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - pip install -r requirements.txt
+    - pytest tests/smoke -m smoke -v --junitxml=report-mr.xml
+  artifacts:
+    when: always
+    paths:
+      - report-mr.xml
+    reports:
+      junit: report-mr.xml
+
+gate1_critical:
+  stage: test
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"
+  script:
+    - pip install -r requirements.txt
+    - pytest tests/gate1 -m gate1 -v --junitxml=report-gate1.xml
+  artifacts:
+    when: always
+    paths:
+      - report-gate1.xml
+    reports:
+      junit: report-gate1.xml

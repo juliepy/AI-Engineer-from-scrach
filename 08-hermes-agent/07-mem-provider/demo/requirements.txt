@@ -1,0 +1,9 @@
+# Mem0 OSS demo deps
+# LLM: DeepSeek API
+# Embed default: HuggingFace Qwen/Qwen3-Embedding-0.6B (sentence-transformers)
+mem0ai>=2.0.10,<3
+qdrant-client>=1.9,<2
+openai>=1.0,<3
+sentence-transformers>=2.7,<6
+# optional: MEM0_DEMO_EMBED_PROVIDER=ollama
+ollama>=0.3,<1

@@ -36,13 +36,16 @@ Thumbs.db
 
 # Local data / logs
 *.log
+# 保留笔试练习数据（否则 01/02/04 的样例日志进不了仓库）
+!10-CICD/09-writing/shell/log/**/*.log
 logs/
 data/raw/
 chroma/
 chromadb/
 *.db
 *.sqlite3
-
+# Python 练习脚本写出的报告
+10-CICD/09-writing/shell/log/04-python/out/
 # Temp Office files
 ~$*
 _scan_secrets.py

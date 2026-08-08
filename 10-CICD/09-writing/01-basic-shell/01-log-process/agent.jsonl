@@ -1,0 +1,6 @@
+{"time":"2026-08-02 09:10:01","agent_id":"agent_01","level":"ERROR","module":"memory","msg":"context exceed limit"}
+{"time":"2026-08-02 09:10:05","agent_id":"agent_02","level":"WARN","module":"llm","msg":"token usage high"}
+{"time":"2026-08-02 09:12:10","agent_id":"agent_01","level":"ERROR","module":"tool","msg":"api timeout"}
+{"time":"2026-08-02 09:15:22","agent_id":"agent_03","level":"INFO","module":"plan","msg":"plan execute success"}
+{"time":"2026-08-02 09:16:40","agent_id":"agent_02","level":"ERROR","module":"memory","msg":"vector db connect fail"}
+{"time":"2026-08-02 10:01:11","agent_id":"agent_01","level":"WARN","module":"llm","msg":"retry request"}

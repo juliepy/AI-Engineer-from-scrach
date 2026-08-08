@@ -1,0 +1,7 @@
+.hermes_demo/
+.venv/
+.env
+exports/mem_provider/
+__pycache__/
+mem0_demo/__pycache__/
+*.pyc

@@ -17,6 +17,18 @@
 
 ---
 
+## Env 是什么 / 作用
+
+Agent 有时要在电脑上跑命令（比如 `ls`、装依赖、跑测试）。**Env（执行环境）就是决定这些命令实际跑在哪里的那一层。**
+
+可以把它想成「工作台」：可以选本机直接跑、Docker 里跑、远程 SSH 机器上跑，或云端沙箱里跑。对 Agent 来说，用法都一样——发一条命令，拿回输出和退出码；换工作台不用改对话逻辑。
+
+它的作用很简单：把「想跑什么命令」和「在哪跑」拆开。主循环只管要不要调 terminal；真正开进程、隔离、读写文件，都交给 Env。你改配置里的 `TERMINAL_ENV`，就能切换后端。
+
+注意：Env **不是** Runtime。Runtime 是整台 Agent「怎么转起来」（思考 → 调工具 → 看结果）；Env 只是其中 **terminal 工具背后的工作台**——管命令跑在哪。下面那张图标题「在 Runtime 里的位置」，意思是 Env 挂在 Runtime 哪一步，不是说两者等同。
+
+---
+
 ## 在 Runtime 里的位置
 
 ```mermaid
@@ -56,12 +68,14 @@ flowchart TB
 │   ├── run_local_env.py
 │   └── exports/local_env/
 └── hermes_src/                        # ★ 真源码剪枝（只读对照）
-    ├── README.md
+    ├── README.md                      # ★ 各 env 文件白话说明
     └── tools/
         ├── terminal_tool.FACTORY.py
         ├── env_probe.py
         └── environments/              # base/local/docker/ssh/…
 ```
+
+各 env 文件逐个说明：[`hermes_src/README.md`](./hermes_src/README.md)。
 
 关联：
 

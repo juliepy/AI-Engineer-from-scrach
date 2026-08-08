@@ -1,0 +1,2 @@
+# 保证 shell 练习脚本在 Windows 检出时仍是 LF，避免 WSL 报 $'\r'
+10-CICD/09-writing/shell/log/**/*.sh text eol=lf

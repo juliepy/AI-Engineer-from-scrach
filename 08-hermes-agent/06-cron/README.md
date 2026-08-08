@@ -1,5 +1,7 @@
 # Hermes Cron（定时任务）
 
+**给小白：** Cron 是「按预定时间自动执行任务」的机制。你先写好要做什么、以及何时做（例如每天 09:00、每隔 2 小时、或某次具体时间点）；程序在后台定期检查当前是否到了该执行的时刻，到了就自动跑对应任务——你不必当时在场手动触发。Hermes 里的 cron 正是这套能力：把任务存在 `jobs.json`，由 gateway 周期性扫描到期项，再启动 Agent 对话或纯脚本。
+
 目标：精读 Hermes **真源码**里定时任务怎么存、怎么 tick、怎么跑——`cron/` + `tools/cronjob_tools.py`。
 
 对照大纲：[`../03-hermes Agent  学习大纲.md`](../03-hermes%20Agent%20%20学习大纲.md)（主循环/环境之后的 **异步调度** 能力；亦见 [`../01-arch.md`](../01-arch.md) §7）。  
@@ -10,7 +12,7 @@ Gateway 进程如何挂上 cron / Delivery：[`../08-gateway/`](../08-gateway/) 
 1. 读 [`notes/`](./notes/README.md)（01→04）建立心智模型  
 2. 打开 [`hermes_src/`](./hermes_src/README.md) **真文件**对照（不是玩具封装）  
 3. 完整仓库对照：上游 `hermes-agent/cron/`  
-4. 动手：跑 [`demo/run_cron_jobs.py`](./demo/run_cron_jobs.py)（**真** `cron.jobs`，临时 `HERMES_HOME`）；或真 gateway 上 `hermes cron` / 打断点  
+4. 动手：跑 [`demo/run_cron_flow.py`](./demo/run_cron_flow.py)（按源码 call flow 逐步：cronjob → jobs.json → tick → run_job）；或真 gateway 上 `hermes cron` / 打断点  
 
 > `hermes_src/` 是只读剪枝：**缺大量依赖，不要指望直接 import 跑通**。  
 > 可跑 demo 走完整 `hermes-agent` 仓库（见 `demo/README.md`）。  
@@ -56,10 +58,11 @@ flowchart TB
 │   ├── 02_tick_and_run.md
 │   ├── 03_cronjob_tool.md
 │   └── 04_hardening_and_delivery.md
-├── demo/                              # ★ 可跑：真 jobs.py（临时 HERMES_HOME）
+├── demo/                              # ★ 可跑：真 cron 模块（HERMES_HOME=demo/）
 │   ├── README.md
-│   ├── run_cron_jobs.py
-│   └── exports/cron_jobs/
+│   ├── run_cron_flow.py               # ★ 全链路：cronjob → tick → run_job → output
+│   ├── scripts/say_hello.py           # no_agent 脚本
+│   └── cron/                          # jobs.json + output/（运行时生成）
 └── hermes_src/                        # ★ 真源码剪枝（只读对照）
     ├── README.md
     ├── cron/
@@ -95,6 +98,6 @@ flowchart TB
 
 ## 动手（对齐模块产出）
 
-1. 跑 `demo/run_cron_jobs.py`，确认 temp `HERMES_HOME/cron/jobs.json` 被写入。  
-2. 画一张「create → tick → run_job → deliver」时序（notes 已给骨架）。  
+1. 跑 `demo/run_cron_flow.py`，对照 stdout 的 ①–⑥ 步与 `hermes_src/README.md` mermaid。  
+2. 打开 `demo/cron/output/<job_id>/`，确认 `run_job` 落盘；once job 跑完后会从 `jobs.json` 移除。  
 3. 面试三句：JSON store；gateway 分钟 tick；无人会话 → skip_memory + 禁交互工具 + Home 投递。

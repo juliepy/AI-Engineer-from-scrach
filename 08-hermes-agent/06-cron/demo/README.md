@@ -1,59 +1,81 @@
-# Cron Demo · 真源码 Job Store
+# Cron Demo · 全链路 call flow
 
-**不改 Hermes 源码。** 把完整 `hermes-agent` 加到 `PYTHONPATH`，在临时 `HERMES_HOME` 下调用 `cron.jobs`。
+**不改 Hermes 源码。** `HERMES_HOME` 指到本 `demo/`，jobs 落在 `demo/cron/jobs.json`。
 
-对照讲稿：[`../notes/01_job_store.md`](../notes/01_job_store.md)、[`../notes/02_tick_and_run.md`](../notes/02_tick_and_run.md)。
+对照源码图：[`../hermes_src/README.md`](../hermes_src/README.md)
 
-本 demo **只测存储与 schedule 解析**，不跑 `tick()` / `AIAgent`（无需 API Key、无需 gateway）。
+---
+
+## 本 demo 覆盖的链路
+
+```text
+cronjob(action='create')         
+        │
+        ▼
+parse_schedule → create_job       ← cron/jobs.py
+        │
+        ▼
+HERMES_HOME/cron/jobs.json
+        │
+        ▼  （省 gateway；真实环境由 gateway 每 ~60s 调）
+tick()                            ← cron/scheduler.py（文件锁）
+        │
+        ▼
+get_due_jobs → run_one_job → run_job
+        │
+        ├── no_agent=True  → scripts/*.py stdout
+        └── no_agent=False → AIAgent（需 RUN_AGENT=True）
+        │
+        ▼
+cron/output/<job_id>/*.md → 投递（deliver=local 只落盘）
+```
+
+| 源码节点 | 本 demo |
+|----------|---------|
+| `cronjob` / `hermes cron` | 直接调 `cronjob(action='create')` |
+| `parse_schedule` / `create_job` | 真调用（create 内部完成 parse） |
+| gateway 进程 | **省略**；直接 `tick()` |
+| `tick` 文件锁 / `get_due_jobs` / `run_job` | 真调用 |
+| `no_agent` 脚本分支 | 默认跑通 |
+| `AIAgent` 分支 | 顶部 `RUN_AGENT = True` |
+| Home / origin 投递 | `deliver=local`（故意不发聊天） |
+
+默认 `SCHEDULE="1m"`：**create 后轮询 `tick()`，约等 1 分钟才跑 `say_hello.py`**（Hermes 最短时长就是 1m）。  
+顶部设 `RUN_NOW = True` 才用「已过去 ISO」立刻执行（调试用）。
 
 ---
 
 ## 跑法
 
+顶部开关（`run_cron_flow.py`）：
+
+```python
+SCHEDULE = "every 1m"  # 每 1 分钟
+REPEAT = 5             # 共 5 次后自动删除
+POLL_SECONDS = 5
+RUN_NOW = False        # True：首跑立刻到期
+RUN_AGENT = False      # True：再跑 AIAgent 分支
+```
+
 ```bash
 cd 06-cron/demo
 
-# 默认会找与 AI_coding_interview 同级的 hermes-agent/
-# 找不到时手动指定：
+# 找不到 hermes-agent 时：
 #   set HERMES_AGENT_ROOT=D:\workspace\doc\面试狂魔\人工智能面试题\hermes-agent
 
-python run_cron_jobs.py
+python run_cron_flow.py
 ```
 
-产物：`exports/cron_jobs/01_report.md`、`00_raw.json`。
-
-依赖：标准 `hermes-agent` 环境即可。五字段 cron 表达式需要本机已装 `croniter`（未装时该条 parse 会记失败，其余 duration / every / ISO 仍通过）。
+日志极简：#1 cronjob(create) → #2 jobs.json → #3 tick（`1/5`…）→ #4 output → #5 agent（可选）。
 
 ---
 
-## 调了哪段真源码
-
-| 调用 | 文件（hermes-agent） |
-|------|----------------------|
-| `parse_schedule` / `create_job` / `list_jobs` / `pause_job` / `get_due_jobs` / `remove_job` | `cron/jobs.py` |
-| `JOBS_FILE`（解析到 temp `HERMES_HOME/cron/jobs.json`） | `jobs.py` + `get_hermes_home()` |
-
-教材剪枝对照：[`../hermes_src/cron/`](../hermes_src/cron/)（只读；本 demo **不**从剪枝树 import）。
-
----
-
-## Call flow
+## 文件
 
 ```text
-run_cron_jobs.main()
-  sys.path ← hermes-agent/
-  HERMES_HOME ← tempfile/.hermes
-  parse_schedule × 4
-  create_job × 2 → jobs.json
-  list_jobs / pause_job / get_due_jobs
-  remove_job × 2
-  → exports/cron_jobs/
+demo/
+├── run_cron_flow.py     # ★ 唯一主入口
+├── scripts/say_hello.py # no_agent 脚本
+├── cron/jobs.json       # 跑完后 once job 通常已被移除
+└── cron/output/<id>/    # run_job 落盘
 ```
-
----
-
-## 真机下一步（可选）
-
-1. `hermes gateway` 跑着时：`hermes cron create --help` / `hermes cron list`  
-2. 断点：`cron/scheduler.py` 的 `tick`、`run_job`  
-3. 对比 `TERMINAL_ENV` 模块：cron 选 **何时跑**；environments 选 **命令跑在哪**

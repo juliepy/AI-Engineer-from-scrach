@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>TripMate AI</title>
+
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+
+    <div class="page-bg">
+        <div class="gradient-circle circle-1"></div>
+        <div class="gradient-circle circle-2"></div>
+        <div class="gradient-circle circle-3"></div>
+    </div>
+
+    <main class="app-container">
+
+        <section class="hero-section">
+            <div class="badge">
+                ✈️ TripMate AI — A Multi-Agent Travel Planner with LangGraph
+            </div>
+
+            <h1>
+                Plan Your Perfect Trip with AI
+            </h1>
+
+            <p>
+                Search flights, discover hotels, and generate a complete travel itinerary using a multi-agent LangGraph system.
+            </p>
+        </section>
+
+        <section class="planner-card">
+
+            <div class="card-header">
+                <div>
+                    <h2>Where do you want to go?</h2>
+                    <p>
+                        Example: Plan a complete 7 days Japan trip from Bangladesh under 2 lakhs.
+                    </p>
+                </div>
+
+                <div class="status-pill">
+                    <span class="status-dot"></span>
+                    Online
+                </div>
+            </div>
+
+            <div class="input-area">
+                <textarea
+                    id="userInput"
+                    placeholder="Plan a complete 7 days Japan trip including flights, hotels and sightseeing under 2 lakhs..."
+                ></textarea>
+
+                <button id="sendBtn" onclick="sendMessage()">
+                    <span id="btnText">Generate Plan</span>
+                    <span id="btnLoader" class="loader hidden"></span>
+                </button>
+            </div>
+
+            <div class="quick-prompts">
+                <button onclick="setPrompt('Plan a complete 7 days Japan trip from Bangladesh including flights, hotels and sightseeing under 2 lakhs.')">
+                    Japan Trip
+                </button>
+
+                <button onclick="setPrompt('Plan a 5 days Dubai trip from Dhaka with flights, hotels and sightseeing.')">
+                    Dubai Trip
+                </button>
+
+                <button onclick="setPrompt('Plan a 7 days Thailand trip from Bangladesh with budget hotels and sightseeing.')">
+                    Thailand Trip
+                </button>
+
+                <button onclick="setPrompt('Give me all country flight info.')">
+                    Global Flights
+                </button>
+            </div>
+
+        </section>
+
+        <section id="resultSection" class="result-section hidden">
+
+            <div class="result-header">
+                <div>
+                    <h2>Your AI Travel Plan</h2>
+                    <p id="threadInfo">Thread ID: -</p>
+                </div>
+
+                <div class="result-actions">
+                    <button class="copy-btn" onclick="copyResult()">
+                        Copy
+                    </button>
+
+                    <button class="download-btn" onclick="downloadPDF()">
+                        Download PDF
+                    </button>
+                </div>
+            </div>
+
+            <div id="pdfContent" class="pdf-content">
+                <h1 class="pdf-title">AI Travel Plan</h1>
+                <div id="resultBox" class="result-box"></div>
+            </div>
+
+        </section>
+
+        <section id="errorBox" class="error-box hidden"></section>
+
+    </main>
+
+    <footer>
+        Built with FastAPI, LangGraph, Groq, PostgreSQL, Tavily and AviationStack
+    </footer>
+
+    <!-- Markdown Renderer -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- PDF Download Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- Your Custom JS -->
+    <script src="/static/script.js"></script>
+
+</body>
+</html>

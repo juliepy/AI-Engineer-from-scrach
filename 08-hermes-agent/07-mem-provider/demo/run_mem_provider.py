@@ -1,174 +1,83 @@
 #!/usr/bin/env python3
-"""Demonstrate MemoryManager prefetch fence + FakeProvider sync — no Hermes edits.
+"""Mem0 OSS demo entry — orchestrates setup → store → fetch → report.
 
-Imports real agent.memory_manager / memory_provider from hermes-agent on PYTHONPATH.
-Does not call network backends.
+LLM: DeepSeek API.
+Embed default: HuggingFace Qwen/Qwen3-Embedding-0.6B (or ollama / openai).
+See README / oss_setup.py.
+
+Teaching modules live in mem0_demo/:
+  paths → bootstrap → oss_setup → store → fetch → report
 """
 
 from __future__ import annotations
 
-import json
-import os
-import sys
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
-DEMO_ROOT = Path(__file__).resolve().parent
-EXPORTS = DEMO_ROOT / "exports" / "mem_provider"
-MODULE_ROOT = DEMO_ROOT.parent  # 07-mem-provider/
-
-
-def _resolve_hermes_agent_root() -> Path:
-    env = os.environ.get("HERMES_AGENT_ROOT", "").strip()
-    if env:
-        p = Path(env).expanduser().resolve()
-        if (p / "agent" / "memory_manager.py").is_file():
-            return p
-        raise SystemExit(f"HERMES_AGENT_ROOT={p} missing agent/memory_manager.py")
-
-    candidates = [
-        MODULE_ROOT.parents[2] / "hermes-agent",
-        MODULE_ROOT.parents[1] / "hermes-agent",
-        Path.home() / "hermes-agent",
-    ]
-    for c in candidates:
-        if (c / "agent" / "memory_manager.py").is_file():
-            return c.resolve()
-    raise SystemExit(
-        "Cannot find hermes-agent. Set HERMES_AGENT_ROOT to the repo root."
-    )
+from mem0_demo.bootstrap import import_mem0_stack, resolve_hermes_agent_root
+from mem0_demo.fetch import run_fetch_turn
+from mem0_demo.oss_setup import prepare_hermes_home
+from mem0_demo.paths import SESSION_ID, USER_ID
+from mem0_demo.report import now_iso, write_exports
+from mem0_demo.store import run_store_turn
 
 
 def main() -> int:
-    root = _resolve_hermes_agent_root()
-    sys.path.insert(0, str(root))
+    root = resolve_hermes_agent_root()
+    hermes_home, mem0_cfg, backend_label = prepare_hermes_home()
 
-    from agent.memory_manager import MemoryManager, build_memory_context_block
-    from agent.memory_provider import MemoryProvider
-
-    class FakeProvider(MemoryProvider):
-        def __init__(self) -> None:
-            self.synced: List[Dict[str, Any]] = []
-            self.queued: List[str] = []
-
-        @property
-        def name(self) -> str:
-            return "fake"
-
-        def is_available(self) -> bool:
-            return True
-
-        def initialize(self, session_id: str, **kwargs) -> None:
-            return None
-
-        def system_prompt_block(self) -> str:
-            return "## Fake memory backend\nUse recalled facts from <memory-context>."
-
-        def prefetch(self, query: str, *, session_id: str = "") -> str:
-            return f"User previously said they like short answers. (query={query[:40]!r})"
-
-        def queue_prefetch(self, query: str, *, session_id: str = "") -> None:
-            self.queued.append(query)
-
-        def sync_turn(
-            self,
-            user_content: str,
-            assistant_content: str,
-            *,
-            session_id: str = "",
-            messages: Optional[List[Dict[str, Any]]] = None,
-        ) -> None:
-            self.synced.append(
-                {
-                    "user": user_content,
-                    "assistant": assistant_content,
-                    "session_id": session_id,
-                }
-            )
-
-        def get_tool_schemas(self) -> List[Dict[str, Any]]:
-            return []
-
-    mgr = MemoryManager()
-    fake = FakeProvider()
-    mgr.add_provider(fake)
-
-    user = "What did I say about reply length?"
-    # Turn start: fetch
-    raw = mgr.prefetch_all(user)
-    fenced = build_memory_context_block(raw)
-    api_user = user + "\n\n" + fenced
-
-    # System volatile piece
-    sp_block = mgr.build_system_prompt()
-
-    # Turn end: store + queue next prefetch
-    asst = "You prefer concise replies."
-    mgr.sync_all(user, asst, session_id="demo-sess")
-    mgr.queue_prefetch_all(user, session_id="demo-sess")
-    # Allow background worker to flush
-    import time
-
-    time.sleep(0.3)
-    mgr.shutdown_all() if hasattr(mgr, "shutdown_all") else None
-
-    EXPORTS.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "hermes_agent_root": str(root),
-        "source": "agent/memory_manager.py + FakeProvider",
-        "prefetch_raw": raw,
-        "fenced_user_injection": fenced,
-        "api_user_message": api_user,
-        "system_prompt_block": sp_block,
-        "synced": fake.synced,
-        "queued_prefetch": fake.queued,
-        "prompts_to_read": [
-            "agent/prompt_builder.py::MEMORY_GUIDANCE",
-            "agent/background_review.py::_MEMORY_REVIEW_PROMPT",
-            "build_memory_context_block system note",
-        ],
-    }
-    (EXPORTS / "00_raw.json").write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+    MemoryManager, Mem0MemoryProvider, build_memory_context_block = import_mem0_stack(
+        root
     )
 
-    report = [
-        "# Mem-provider demo",
-        "",
-        f"- hermes_agent_root: `{root}`",
-        f"- generated: {payload['generated_at']}",
-        "",
-        "## 1. Prefetch → user injection (fetch)",
-        "",
-        "```",
-        fenced,
-        "```",
-        "",
-        "## 2. System prompt block (static)",
-        "",
-        "```",
-        sp_block,
-        "```",
-        "",
-        "## 3. After turn: sync_turn (store)",
-        "",
-        "```json",
-        json.dumps(fake.synced, ensure_ascii=False, indent=2),
-        "```",
-        "",
-        "## Related prompts (read in notes/04)",
-        "",
-        "- `MEMORY_GUIDANCE`",
-        "- `_MEMORY_REVIEW_PROMPT`",
-        "- `<memory-context>` system note",
-        "",
-    ]
-    (EXPORTS / "01_report.md").write_text("\n".join(report), encoding="utf-8")
-    print(fenced[:200], "...")
-    print(f"synced={fake.synced}")
-    print(f"wrote {EXPORTS / '01_report.md'}")
+    mgr = MemoryManager()
+    provider = Mem0MemoryProvider()
+    mgr.add_provider(provider)
+    mgr.initialize_all(SESSION_ID, user_id=USER_ID, platform="cli")
+
+    if not provider.is_available():
+        raise SystemExit(
+            f"Mem0MemoryProvider reports unavailable. Check {hermes_home / 'mem0.json'}"
+        )
+    if getattr(provider, "_backend", None) is None:
+        err = getattr(provider, "_init_error", "unknown")
+        raise SystemExit(f"Mem0 OSS backend failed to init: {err}")
+
+    # ★ 讲解点 1：存
+    turn1 = run_store_turn(mgr, provider, session_id=SESSION_ID)
+    # ★ 讲解点 2：取 + 围栏
+    turn2 = run_fetch_turn(
+        mgr, provider, build_memory_context_block, session_id=SESSION_ID
+    )
+
+    mgr.shutdown_all()
+
+    payload: Dict[str, Any] = {
+        "generated_at": now_iso(),
+        "hermes_agent_root": str(root),
+        "hermes_home": str(hermes_home),
+        "backend": backend_label,
+        "source": "plugins/memory/mem0 + agent/memory_manager.py (OSS / DeepSeek)",
+        "mem0_json": mem0_cfg,  # no api_key fields; secrets stay in env
+        "turn1": {
+            "user": turn1["user"],
+            "assistant": turn1["assistant"],
+            "sync_joined": turn1["sync_joined"],
+        },
+        "mem0_add_result": turn1["mem0_add_result"],
+        "prefetch_raw": turn2["prefetch_raw"],
+        "mem0_search_result": turn2["mem0_search_result"],
+        "fenced_user_injection": turn2["fenced_user_injection"],
+        "api_user_message": turn2["api_user_message"],
+        "system_prompt_block": turn2["system_prompt_block"],
+    }
+    report_path = write_exports(payload)
+
+    fenced = turn2["fenced_user_injection"]
+    raw = turn2["prefetch_raw"]
+    search_raw = turn2["mem0_search_result"]
+    print(f"backend={backend_label}")
+    print((fenced or raw or search_raw)[:300], "...")
+    print(f"wrote {report_path}")
     return 0
 
 

@@ -1,24 +1,48 @@
 {
-  "generated_at": "2026-07-30T02:49:58.352164+00:00",
+  "generated_at": "2026-08-02T13:31:52.300282+00:00",
   "hermes_agent_root": "D:\\workspace\\doc\\面试狂魔\\人工智能面试题\\hermes-agent",
-  "source": "agent/memory_manager.py + FakeProvider",
-  "prefetch_raw": "User previously said they like short answers. (query='What did I say about reply length?')",
-  "fenced_user_injection": "<memory-context>\n[System note: The following is recalled memory context, NOT new user input. Treat as authoritative reference data — this is the agent's persistent memory and should inform all responses.]\n\nUser previously said they like short answers. (query='What did I say about reply length?')\n</memory-context>",
-  "api_user_message": "What did I say about reply length?\n\n<memory-context>\n[System note: The following is recalled memory context, NOT new user input. Treat as authoritative reference data — this is the agent's persistent memory and should inform all responses.]\n\nUser previously said they like short answers. (query='What did I say about reply length?')\n</memory-context>",
-  "system_prompt_block": "## Fake memory backend\nUse recalled facts from <memory-context>.",
-  "synced": [
-    {
-      "user": "What did I say about reply length?",
-      "assistant": "You prefer concise replies.",
-      "session_id": "demo-sess"
+  "hermes_home": "D:\\workspace\\doc\\面试狂魔\\人工智能面试题\\AI_coding_interview\\08-hermes-agent\\07-mem-provider\\demo\\.hermes_demo",
+  "backend": "deepseek (https://api.deepseek.com) + ollama-embed (nomic-embed-text @ http://localhost:11434) + local qdrant",
+  "source": "plugins/memory/mem0 + agent/memory_manager.py (OSS / DeepSeek)",
+  "mem0_json": {
+    "mode": "oss",
+    "user_id": "mem0-demo-user",
+    "agent_id": "hermes-demo",
+    "oss": {
+      "llm": {
+        "provider": "deepseek",
+        "config": {
+          "model": "deepseek-chat",
+          "deepseek_base_url": "https://api.deepseek.com",
+          "temperature": 0.2,
+          "max_tokens": 2000
+        }
+      },
+      "embedder": {
+        "provider": "ollama",
+        "config": {
+          "model": "nomic-embed-text",
+          "ollama_base_url": "http://localhost:11434",
+          "embedding_dims": 768
+        }
+      },
+      "vector_store": {
+        "provider": "qdrant",
+        "config": {
+          "path": "D:\\workspace\\doc\\面试狂魔\\人工智能面试题\\AI_coding_interview\\08-hermes-agent\\07-mem-provider\\demo\\.hermes_demo\\mem0_qdrant"
+        }
+      }
     }
-  ],
-  "queued_prefetch": [
-    "What did I say about reply length?"
-  ],
-  "prompts_to_read": [
-    "agent/prompt_builder.py::MEMORY_GUIDANCE",
-    "agent/background_review.py::_MEMORY_REVIEW_PROMPT",
-    "build_memory_context_block system note"
-  ]
+  },
+  "turn1": {
+    "user": "Please remember: I prefer short answers in Chinese, and my project codename is Orion.",
+    "assistant": "明白了。之后用中文短答，并记住项目代号 Orion。",
+    "sync_joined": true
+  },
+  "mem0_add_result": "{\"result\": \"Fact stored.\", \"event_id\": null}",
+  "prefetch_raw": "## Mem0 Memory\n- User prefers short answers in Chinese. Project codename is Orion.\n- User prefers short answers in Chinese. Project codename is Orion.\n- User prefers short answers in Chinese. Project codename is Orion.",
+  "mem0_search_result": "{\"results\": [{\"id\": \"581b005a-7700-4fdf-b87f-21c981535af6\", \"memory\": \"User prefers short answers in Chinese. Project codename is Orion.\", \"score\": 0.3146232808925302}, {\"id\": \"8cce0989-4863-4d56-b925-46dfc5529467\", \"memory\": \"User prefers short answers in Chinese. Project codename is Orion.\", \"score\": 0.3146232805964491}, {\"id\": \"3755743d-c398-444e-b01e-497d5cd58fd9\", \"memory\": \"User prefers short answers in Chinese. Project codename is Orion.\", \"score\": 0.3082522199868039}], \"count\": 3}",
+  "fenced_user_injection": "<memory-context>\n[System note: The following is recalled memory context, NOT new user input. Treat as authoritative reference data — this is the agent's persistent memory and should inform all responses.]\n\n## Mem0 Memory\n- User prefers short answers in Chinese. Project codename is Orion.\n- User prefers short answers in Chinese. Project codename is Orion.\n- User prefers short answers in Chinese. Project codename is Orion.\n</memory-context>",
+  "api_user_message": "What did I say about reply length and my project name?\n\n<memory-context>\n[System note: The following is recalled memory context, NOT new user input. Treat as authoritative reference data — this is the agent's persistent memory and should inform all responses.]\n\n## Mem0 Memory\n- User prefers short answers in Chinese. Project codename is Orion.\n- User prefers short answers in Chinese. Project codename is Orion.\n- User prefers short answers in Chinese. Project codename is Orion.\n</memory-context>",
+  "system_prompt_block": "# Mem0 Memory\nActive. Mode: OSS (self-hosted). User: mem0-demo-user.\nYou have persistent memory of this user from past conversations. You should call mem0_search before answering anything that could depend on prior context (the user's preferences, facts, history, people, projects, or earlier decisions) — do not rely on the chat window alone, and do not assume you have no memory.\nFor multi-part or multi-hop questions, run several searches with different wording/angles and follow-up searches on what the first results surface; one search is rarely enough. Keep searching until you have every fact the question needs before you answer.\nTools: mem0_search to find memories, mem0_add to store facts, mem0_update and mem0_delete to manage by ID."
 }

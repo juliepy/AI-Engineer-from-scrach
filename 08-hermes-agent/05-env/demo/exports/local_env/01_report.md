@@ -2,7 +2,7 @@
 
 - hermes_agent_root: `D:\workspace\doc\面试狂魔\人工智能面试题\hermes-agent`
 - source: `tools/environments/local.py` (unmodified)
-- generated: 2026-07-30T02:36:39.092270+00:00
+- generated: 2026-07-30T09:36:01.680268+00:00
 
 ## Probes
 

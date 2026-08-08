@@ -1,0 +1,34 @@
+{
+  "updated_at": "2026-08-02T00:00:00Z",
+  "default_provider": "openai",
+  "providers": [
+    {
+      "name": "openai",
+      "enabled": true,
+      "base_url": "https://api.openai.com/v1",
+      "models": [
+        { "id": "gpt-4o", "ctx": 128000, "price_in": 2.5, "price_out": 10.0, "tools": true },
+        { "id": "gpt-4o-mini", "ctx": 128000, "price_in": 0.15, "price_out": 0.6, "tools": true },
+        { "id": "o3-mini", "ctx": 200000, "price_in": 1.1, "price_out": 4.4, "tools": false }
+      ]
+    },
+    {
+      "name": "anthropic",
+      "enabled": true,
+      "base_url": "https://api.anthropic.com/v1",
+      "models": [
+        { "id": "claude-3-5-sonnet", "ctx": 200000, "price_in": 3.0, "price_out": 15.0, "tools": true },
+        { "id": "claude-3-haiku", "ctx": 200000, "price_in": 0.25, "price_out": 1.25, "tools": true }
+      ]
+    },
+    {
+      "name": "deepseek",
+      "enabled": false,
+      "base_url": "https://api.deepseek.com/v1",
+      "models": [
+        { "id": "deepseek-v3", "ctx": 64000, "price_in": 0.27, "price_out": 1.1, "tools": true },
+        { "id": "deepseek-r1", "ctx": 64000, "price_in": 0.55, "price_out": 2.19, "tools": false }
+      ]
+    }
+  ]
+}

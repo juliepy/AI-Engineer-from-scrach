@@ -1,0 +1,155 @@
+# Full textbook pipeline + multi-gate variants
+# Local: python run_pipeline.py                 # standard (all stages)
+#        python run_pipeline.py --gate mr_fast  # fast MR subset
+#
+# Stage order matches 03-标准流水线流程.md:
+#   prepare(checkout) → lint → scan → test → build → archive
+
+stages:
+  - prepare
+  - lint
+  - scan
+  - test
+  - build
+  - archive
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  PYTHONPATH: "$CI_PROJECT_DIR"
+
+.python_setup:
+  cache:
+    key: pip-$CI_COMMIT_REF_SLUG
+    paths:
+      - .cache/pip
+      - .venv/
+  before_script:
+    - python -m venv .venv
+    - source .venv/bin/activate
+    - pip install -r requirements.txt
+
+# ── Standard full path (learning default conceptually) ──────────────
+# In real GitLab, checkout is automatic; we keep an explicit job for teaching.
+
+checkout_job:
+  extends: .python_setup
+  stage: prepare
+  script:
+    - python scripts/checkout_sim.py
+  artifacts:
+    paths:
+      - artifacts/checkout-meta.json
+
+lint_job:
+  extends: .python_setup
+  stage: lint
+  needs: ["checkout_job"]
+  script:
+    # 依赖 before_script 已 pip install；本地请先 activate .venv 再跑：
+    #   python -m ruff check app tests scripts
+    - python -m ruff check app tests scripts
+
+scan_job:
+  extends: .python_setup
+  stage: scan
+  needs: ["lint_job"]
+  script:
+    - python scripts/scan.py
+  artifacts:
+    when: always
+    paths:
+      - artifacts/scan-report.json
+
+unit_test:
+  extends: .python_setup
+  stage: test
+  needs: ["scan_job"]
+  script:
+    - pytest tests/smoke -m smoke -v --junitxml=artifacts/report-standard.xml
+  artifacts:
+    when: always
+    paths:
+      - artifacts/report-standard.xml
+    reports:
+      junit: artifacts/report-standard.xml
+
+build_pkg:
+  extends: .python_setup
+  stage: build
+  needs: ["unit_test"]
+  script:
+    - python scripts/build.py --sha "$CI_COMMIT_SHA"
+  artifacts:
+    paths:
+      - dist/
+      - artifacts/mini-app-*.txt
+
+archive_job:
+  extends: .python_setup
+  stage: archive
+  needs: ["build_pkg", "scan_job", "unit_test"]
+  script:
+    - python scripts/archive.py
+  artifacts:
+    paths:
+      - artifacts/archive/
+
+# ── Multi-gate examples (same repo; different rules / case sets) ────
+
+mr_fast_test:
+  extends: .python_setup
+  stage: test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - pytest tests/smoke -m smoke -v --junitxml=artifacts/report-mr.xml
+  artifacts:
+    when: always
+    paths:
+      - artifacts/report-mr.xml
+    reports:
+      junit: artifacts/report-mr.xml
+
+gate1_critical:
+  extends: .python_setup
+  stage: test
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"
+  script:
+    - pytest tests/gate1 -m gate1 -v --junitxml=artifacts/report-gate1.xml
+  artifacts:
+    when: always
+    paths:
+      - artifacts/report-gate1.xml
+    reports:
+      junit: artifacts/report-gate1.xml
+
+daily_full:
+  extends: .python_setup
+  stage: test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  script:
+    - pytest tests/full -m full -v --junitxml=artifacts/report-daily.xml
+  artifacts:
+    when: always
+    paths:
+      - artifacts/report-daily.xml
+    reports:
+      junit: artifacts/report-daily.xml
+
+release_accept:
+  extends: .python_setup
+  stage: test
+  rules:
+    - if: $CI_COMMIT_TAG
+  needs: ["build_pkg"]
+  script:
+    - pytest tests/release -m release -v --junitxml=artifacts/report-release.xml
+  artifacts:
+    when: always
+    paths:
+      - artifacts/report-release.xml
+      - dist/
+    reports:
+      junit: artifacts/report-release.xml
