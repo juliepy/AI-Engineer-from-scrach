@@ -1,6 +1,6 @@
-from tools.tavily_tool import tavily_search
-from tools.flight_tool import search_flights
 from backend import run_travel_agent
+from backend.tools.flight_tool import search_flights
+from backend.tools.tavily_tool import tavily_search
 
 # res = tavily_search("Best hotels in India")
 # print(res)

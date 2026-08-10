@@ -1,0 +1,75 @@
+[project]
+name = "waku-agent"
+version = "0.1.0"
+description = "A minimal, transparent, local-first Waku: harness + loop + memory + eval, in code you can read in an afternoon."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Sean Chen (ShenSeanChen)" }]
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.40",   # anthropic wire format: Anthropic, Kimi, GLM, MiniMax
+    "openai>=1.50",      # openai wire format: OpenAI, Gemini, DeepSeek (and embeddings)
+    "python-dotenv>=1.0",
+    "rich>=13.0",
+]
+
+[project.scripts]
+# Branded CLI: `waku dashboard`, `waku voice`, `waku` to chat, etc.
+waku = "waku.__main__:main"
+
+[project.optional-dependencies]
+# Eval pillar: LLM-as-judge (deterministic evals need only pytest)
+eval = [
+    "pytest>=8.0",
+    "deepeval>=2.0",
+]
+# LLM-Ops pillar: local trace dashboard (traces also always land in traces/*.jsonl)
+tracing = [
+    "arize-phoenix>=7.0",
+    "opentelemetry-sdk>=1.27",
+    "opentelemetry-exporter-otlp>=1.27",
+]
+# Optional gateway: message your laptop from your phone
+telegram = [
+    "python-telegram-bot>=21.0",
+]
+# Optional gateway: talk to your laptop. TTS uses macOS `say` by default;
+# for the neural British voice: pip install kokoro soundfile (pulls torch).
+voice = [
+    "faster-whisper>=1.0",
+    "sounddevice>=0.4",
+]
+# The beautiful neural voice (Kokoro-82M, Apache-2.0): British butler, fully
+# local/offline. Heavier — pulls torch (~2GB). `uv pip install '.[voice-neural]'`
+# and Waku auto-detects it; no env var needed.
+voice-neural = [
+    "kokoro>=0.9",
+    "soundfile>=0.12",
+]
+# Optional semantic-memory upgrade path: Supabase pgvector (see launch-rag)
+supabase = [
+    "supabase>=2.0",
+]
+# Optional episodic-memory backend: Notion database
+# Requires >=2.5: the adapter uses the data_sources API (Notion API 2025-09-03).
+notion = [
+    "notion-client>=2.5",
+]
+# Optional: connect MCP servers (.waku/mcp.json)
+mcp = [
+    "mcp>=1.0",
+]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["waku"]
+
+[tool.ruff]
+line-length = 100
