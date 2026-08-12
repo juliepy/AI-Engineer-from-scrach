@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from evals.helpers import HAS_KEY, ScriptedClient, make_waku, response, text_block, tool_block
+from evals.helpers import HAS_KEY, ScriptedClient, has_key, make_waku, response, text_block, tool_block
 
 DATASET = [
     json.loads(line)
@@ -100,11 +100,16 @@ def test_iteration_guardrail_stops_runaway_loop(tmp_path):
 
 
 # ---------- live tier: the actual model eval over the dataset
+# Marked `live` so you can keep the suite green offline:
+#   uv run python -m pytest -q evals/deterministic -m "not live"
 
 
+@pytest.mark.live
 @pytest.mark.skipif(not HAS_KEY, reason="live eval needs the active provider's API key")
 @pytest.mark.parametrize("case", DATASET, ids=[c["id"] for c in DATASET])
 def test_dataset_case(case, tmp_path):
+    if not has_key():
+        pytest.skip("live eval needs the active provider's API key")
     app = make_waku(tmp_path / "home")
     if "setup_fact" in case:
         app.memory.facts.add(case["setup_fact"]["subject"], case["setup_fact"]["content"])

@@ -17,6 +17,8 @@
 
 ## 快速开始
 
+**macOS / Linux / Git Bash：**
+
 ```bash
 git clone https://github.com/ShenSeanChen/waku-agent && cd waku-agent
 uv venv
@@ -26,7 +28,19 @@ uv run waku                   # 终端对话
 uv run waku dashboard         # 浏览器 → http://localhost:7777
 ```
 
-PowerShell 请分行执行（不要用 `&&`）。改完 `.env` 后重跑即可。
+**Windows PowerShell（分行执行，不要用 `&&`）：**
+
+```powershell
+git clone https://github.com/ShenSeanChen/waku-agent
+cd waku-agent
+uv venv
+uv pip install -e .
+Copy-Item .env.example .env   # 编辑 .env：WAKU_PROVIDER + 对应密钥
+uv run waku
+uv run waku dashboard         # 浏览器 → http://localhost:7777
+```
+
+改完 `.env` 后重跑即可。本机若没有 `make`（常见于 Windows），一律用下面的 `uv run` / `python -m` 命令。
 
 试一句：*"记住 Alex 更喜欢早上开会。"* 退出再进 → *"周五和 Alex 约个 catch-up。"* 记忆在 `.waku/state.db`。
 
@@ -44,69 +58,37 @@ PowerShell 请分行执行（不要用 `&&`）。改完 `.env` 后重跑即可�
 
 ```mermaid
 flowchart TB
-  %% Gateway / Memory / Eval 内部一律横排
-
-  subgraph GW["① Gateway · 只传文本"]
-    direction LR
-    CLI["CLI"] --> TG["Telegram"] --> VO["Voice"] --> DASH["Dashboard"]
+  subgraph GW["1 Gateway - text only"]
+    CLI[CLI] --- TG[Telegram] --- VO[Voice] --- DASH[Dashboard]
   end
 
-  WM["② Working Memory<br/>SOUL.md · history · memory ctx"]
+  WM["2 Working Memory<br/>SOUL.md / history / memory ctx"]
 
-  subgraph LOOP["③ Loop · reason → act → observe"]
-    direction LR
-    LLM["LLM · models.py"] -->|"tool call"| TOOLS["Tools · calendar · search · notes"]
-    TOOLS -->|"result"| LLM
+  subgraph LOOP["3 Loop - reason then act then observe"]
+    LLM[LLM models.py] -->|tool call| TOOLS[Tools]
+    TOOLS -->|result| LLM
   end
 
-  REPLY["④ Reply"]
+  REPLY[4 Reply]
 
-  subgraph MEM["⑤ Memory · state.db"]
-    direction LR
-    GATE{{"Retrieval gate"}} --> STORE[("semantic · episodic · procedural")] --> CONS["Consolidate"]
+  subgraph MEM["5 Memory - state.db"]
+    GATE{Retrieval gate} --> STORE[(semantic / episodic / procedural)]
+    STORE --> CONS[Consolidate]
   end
 
-  subgraph OPS["⑥ Ops · Eval"]
-    direction LR
-    TRACE["Trace"] --> EVAL["Deterministic + Judge"] --> RGATE["Release"]
+  subgraph OPS["6 Ops Eval"]
+    TRACE[Trace] --> EVAL[Deterministic + Judge]
+    EVAL --> RGATE[Release gate]
   end
 
-  GW -->|"message"| WM
+  GW -->|message| WM
   WM --> LLM
-  LLM -->|"done"| REPLY
+  LLM -->|done| REPLY
   REPLY --> GATE
   REPLY --> TRACE
-
-  classDef gw fill:#C5D5E4,stroke:#2F4A63,color:#14202C,stroke-width:2px
-  classDef wm fill:#F0E0C8,stroke:#5C4630,color:#1F1710,stroke-width:2px
-  classDef llm fill:#9EC4E0,stroke:#1E4A6E,color:#0D1B28,stroke-width:2px
-  classDef tool fill:#8FCBB3,stroke:#1F5C45,color:#0D2018,stroke-width:2px
-  classDef reply fill:#D5E4EC,stroke:#3A4E58,color:#14202C,stroke-width:2px
-  classDef gate fill:#F2D59B,stroke:#8A5A18,color:#1F1710,stroke-width:2px
-  classDef mem fill:#E8B4B0,stroke:#7A3A40,color:#241618,stroke-width:2px
-  classDef cons fill:#E0A8B8,stroke:#6E404C,color:#241618,stroke-width:2px
-  classDef ops fill:#C5CDD6,stroke:#2F3A42,color:#14191E,stroke-width:2px
-  classDef boxGw fill:#E8F1F8,stroke:#2F4A63,color:#14202C,stroke-width:3px
-  classDef boxLoop fill:#E3F0FA,stroke:#1E4A6E,color:#0D1B28,stroke-width:3px
-  classDef boxMem fill:#FCEEEC,stroke:#7A3A40,color:#241618,stroke-width:3px
-  classDef boxOps fill:#EEF1F4,stroke:#2F3A42,color:#14191E,stroke-width:3px
-
-  class CLI,TG,VO,DASH gw
-  class WM wm
-  class LLM llm
-  class TOOLS tool
-  class REPLY reply
-  class GATE gate
-  class STORE mem
-  class CONS cons
-  class TRACE,EVAL,RGATE ops
-  class GW boxGw
-  class LOOP boxLoop
-  class MEM boxMem
-  class OPS boxOps
 ```
 
-主链路：`Gateway → Working Memory → Loop → Reply → Memory / Eval`（Gateway、Memory、Eval 均为横排）。  
+主链路：`Gateway → Working Memory → Loop → Reply → Memory / Eval`。  
 反馈（图中省略）：gate 命中时注入 WM；Ops 改进 prompt/config 后回灌 WM。
 
 | 模块 | 路径 |
@@ -128,11 +110,11 @@ flowchart TB
 
 | 入口 | 命令 | 依赖 |
 |------|------|------|
-| CLI | `uv run waku` / `make run` | 默认 |
-| Dashboard | `uv run waku dashboard` / `make dashboard` | 默认 · `127.0.0.1:7777` |
-| Voice | `waku voice` | `pip install -e '.[voice]'` |
-| Telegram | `make telegram` | `.[telegram]` + `TELEGRAM_BOT_TOKEN` |
-| Brief | `make brief` | macOS · `WAKU_APPLE_TOOLS=1` |
+| CLI | `uv run waku` | 默认 |
+| Dashboard | `uv run waku dashboard` | 默认 · `127.0.0.1:7777` |
+| Voice | `uv run waku voice` | `uv pip install -e ".[voice]"` |
+| Telegram | `uv run waku telegram` | `.[telegram]` + `TELEGRAM_BOT_TOKEN` |
+| Brief | `uv run waku brief` | macOS · `WAKU_APPLE_TOOLS=1` |
 
 **Dashboard** 是同一进程里的本地 Web UI（无构建）。标签对应支柱：Overview / Gateway / Loop / Memory / Tools / Data / Ops。聊天坞可打字或说话，看 harness 亮灯。
 
@@ -171,8 +153,8 @@ while not done:
 **MCP：** `pip install -e '.[mcp]'`，配置 `.waku/mcp.json`。无 Node 演示：
 
 ```bash
-cp examples/mcp.demo.json .waku/mcp.json
-make dashboard    # Tools ▸ MCP 出现 demo_* 工具
+cp examples/mcp.demo.json .waku/mcp.json   # PowerShell: Copy-Item ...
+uv run waku dashboard                      # Tools ▸ MCP 出现 demo_* 工具
 ```
 
 **实验工具**（`WAKU_EXPERIMENTAL=1`）：`delegate_task` → [pi](https://github.com/earendil-works/pi) 已上线；`run_command` / `browse_web` / `schedule_task` 仍为骨架。
@@ -208,14 +190,40 @@ python -m waku skill install https://github.com/<org>/<repo>/blob/main/skills/<n
 
 ## Ops · Eval
 
-| 命令 | 作用 |
-|------|------|
-| `make eval` | 确定性 0/1：对的工具触发了吗？ |
-| `make eval-judge` | LLM-as-judge：回复好不好？（需密钥） |
-| `make gate` | 发布门禁：确定性 100% + judge 过阈值 |
-| `make trace` | Phoenix 瀑布 · localhost:6006（需 `.[tracing]`） |
+```mermaid
+flowchart LR
+  RUN[respond] --> TRACE[traces jsonl]
+  DET[deterministic 0/1] --> RG{release_gate}
+  JUD[judge score] --> RG
+  RG -->|pass| SHIP[ship]
+  RG -->|fail| BLOCK[block]
+```
 
 两类评测**永不混用**。线上 bug：修好并加一条 `evals/deterministic/` 回归。
+
+**先装评测依赖：**
+
+```bash
+uv pip install -e ".[eval]"
+```
+
+| 作用 | 推荐命令（全平台） | 有 `make` 时 |
+|------|-------------------|--------------|
+| 确定性 0/1（含 live） | `uv run python -m pytest -q evals/deterministic` | `make eval` |
+| 确定性仅离线 | `uv run python -m pytest -q evals/deterministic -m "not live"` | — |
+| LLM-as-judge | `uv run python -m pytest -q evals/judge` | `make eval-judge` |
+| 发布门禁 | `uv run python -m waku.ops.release_gate` | `make gate` |
+| Phoenix 瀑布 | `uv run python -m phoenix.server.main serve`（需 `.[tracing]`） | `make trace` |
+
+Windows PowerShell 示例：
+
+```powershell
+uv pip install -e ".[eval]"
+uv run python -m pytest -q evals/deterministic -m "not live"   # 离线脚手架，应全绿
+uv run python -m pytest -q evals/deterministic                 # 含 live：测当前模型是否听话
+uv run python -m pytest -q evals/judge                         # 需 API key
+uv run python -m waku.ops.release_gate
+```
 
 - Trace：每轮追加 `.waku/traces/<date>.jsonl`（零配置）
 - 花费：追加 `.waku/usage.jsonl`（演示重置也保留）
@@ -224,7 +232,7 @@ python -m waku skill install https://github.com/<org>/<repo>/blob/main/skills/<n
 干净演示（会重置 `.waku`，每次须确认）：
 
 ```bash
-python scripts/demo_seed.py --yes
+uv run python scripts/demo_seed.py --yes
 ```
 
 ---
@@ -233,16 +241,18 @@ python scripts/demo_seed.py --yes
 
 | 命令 | 作用 |
 |------|------|
-| `waku` | 终端聊天 |
-| `waku dashboard` | 驾驶舱 :7777 |
-| `waku voice` | 语音 |
-| `waku telegram` | 手机 → 笔记本 |
-| `waku brief` | 晨间简报 |
-| `make eval` / `eval-judge` / `gate` | 评测与门禁 |
-| `make trace` | Phoenix :6006 |
-| `make lint` | ruff |
+| `uv run waku` | 终端聊天 |
+| `uv run waku dashboard` | 驾驶舱 :7777 |
+| `uv run waku voice` | 语音 |
+| `uv run waku telegram` | 手机 → 笔记本 |
+| `uv run waku brief` | 晨间简报 |
+| `uv run python -m pytest -q evals/deterministic` | 确定性评测 |
+| `uv run python -m pytest -q evals/judge` | LLM judge |
+| `uv run python -m waku.ops.release_gate` | 发布门禁 |
+| `uv run python -m phoenix.server.main serve` | Phoenix :6006 |
+| `uv run ruff check waku evals` | lint |
 
-`make` 目标是 `waku` 的别名（见 `Makefile`）。
+有 Make 的环境可用 `make eval` / `gate` / `trace` 等别名（见 `Makefile`）；Windows 通常没有 `make`，直接用上表。
 
 ---
 

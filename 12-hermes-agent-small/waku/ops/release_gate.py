@@ -24,18 +24,41 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 def run(suite: str) -> tuple[int, dict]:
-    """Run a pytest suite; return (exit_code, {passed, failed}). Counts come
-    from the -q summary line — zero extra deps; 0/0 on a miss is honest."""
-    print(f"\n=== {suite} ===")
-    proc = subprocess.run(
-        [sys.executable, "-m", "pytest", "-q", str(REPO / "evals" / suite)],
-        cwd=REPO, capture_output=True, text=True,
+    """Run a pytest suite; stream output live (so the gate doesn't look hung),
+    then parse {passed, failed} from the -q summary line."""
+    print(f"\n=== {suite} ===", flush=True)
+    print(f"(running pytest evals/{suite} — progress below)", flush=True)
+    # Unbuffered child so Windows/Git-Bash show dots as tests finish, not only
+    # after the whole suite ends.
+    env = {**os.environ, "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8"}
+    proc = subprocess.Popen(
+        [sys.executable, "-u", "-m", "pytest", "-q", str(REPO / "evals" / suite)],
+        cwd=REPO,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=env,
+        bufsize=1,
     )
-    print(proc.stdout, end="")
-    print(proc.stderr, end="", file=sys.stderr)
-    counts = {k: (int(m.group(1)) if (m := re.search(rf"(\d+) {k}", proc.stdout)) else 0)
-              for k in ("passed", "failed")}
-    return proc.returncode, counts
+    # Read by chunk, not by line: pytest -q emits "." with no newline until the
+    # summary, so line-buffering would still look hung for the whole suite.
+    chunks: list[str] = []
+    assert proc.stdout is not None
+    while True:
+        chunk = proc.stdout.read(64)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        print(chunk, end="", flush=True)
+    code = proc.wait()
+    out = "".join(chunks)
+    counts = {
+        k: (int(m.group(1)) if (m := re.search(rf"(\d+) {k}", out)) else 0)
+        for k in ("passed", "failed")
+    }
+    return code, counts
 
 
 def report(deterministic: str, judge: str, suites: dict | None = None) -> None:

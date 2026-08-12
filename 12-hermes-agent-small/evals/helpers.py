@@ -7,19 +7,29 @@ import os
 from pathlib import Path
 from types import SimpleNamespace
 
-def _has_key() -> bool:
+
+def has_key() -> bool:
     """True when the ACTIVE provider (WAKU_PROVIDER) has its key set, so live
     evals run on whatever the user actually configured (anthropic, openrouter,
-    gemini, ...), not only on ANTHROPIC_API_KEY."""
+    gemini, ...), not only on ANTHROPIC_API_KEY.
+
+    Computed at call time — earlier tests may mutate os.environ via
+    dashboard.apply_settings, so an import-time snapshot would go stale.
+    """
     from waku.config import load_settings
     from waku.loop.models import PROVIDERS
 
     settings = load_settings()
     provider = PROVIDERS.get(settings.provider)
-    return bool(settings.api_key or (provider and os.getenv(provider.key_env)))
+    return bool(
+        (settings.api_key or "").strip()
+        or (provider and (os.getenv(provider.key_env) or "").strip())
+    )
 
 
-HAS_KEY = _has_key()
+# Back-compat alias for collection-time skipif. Live tests also call has_key()
+# at runtime because apply_settings can pollute os.environ mid-suite.
+HAS_KEY = has_key()
 
 
 def text_block(text: str):

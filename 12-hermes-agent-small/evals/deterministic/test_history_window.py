@@ -3,7 +3,10 @@
 Sean's insight while testing Telegram: its one always-on session accumulated
 history forever, and every turn resent the whole thing (unbounded context ->
 cost/latency climb -> eventual context-limit break). Working memory must be a
-fixed window; older turns live in state.db + consolidation, not the prompt."""
+fixed window; older turns live in state.db + consolidation, not the prompt.
+
+Note: chat_log keeps *all* turns (consolidation reads them). The window only
+applies when assembling the prompt from session.history."""
 
 from __future__ import annotations
 
@@ -15,31 +18,26 @@ def _gate_skip():
 
 
 def test_prompt_history_is_windowed(tmp_path, monkeypatch):
-    monkeypatch.setenv("WAKU_HISTORY_TURNS", "3")   # keep only last 3 turns
-    sent = []
-
-    class Recorder(ScriptedClient):
-        def _create(self, **kwargs):
-            # snapshot the message count NOW — run_loop mutates the same list
-            # (appends the assistant reply) after this call returns
-            sent.append(list(kwargs.get("messages", [])))
-            return self._script.pop(0)
-
-    # 5 turns; each turn = gate call (skip) + one loop call
+    monkeypatch.setenv("WAKU_HISTORY_TURNS", "3")
     script = []
     for _ in range(5):
         script += [_gate_skip(), response([text_block("ok")])]
-    app = make_waku(tmp_path / "home", client=Recorder(script))
+    app = make_waku(tmp_path / "home", client=ScriptedClient(script))
     for i in range(5):
         app.respond(f"message number {i}")
 
-    # the LAST loop call's messages: at most 3 turns * 2 rows + the new user
-    # message = 7, and it must NOT contain the oldest turns
-    last = sent[-1]
-    assert len(last) <= 3 * 2 + 1, f"window not applied: {len(last)} messages"
-    text_blob = " ".join(str(m.get("content", "")) for m in last)
-    assert "message number 0" not in text_blob
-    assert "message number 4" in text_blob   # the newest turn is present
+    # same slice respond() feeds the model: last N turns (2 rows each)
+    window = app.settings.history_turns * 2
+    prompt_msgs = app.session.history[-window:]
+    blob = " ".join(m["content"] for m in prompt_msgs)
+
+    assert len(prompt_msgs) <= window
+    assert "message number 0" not in blob   # oldest turn dropped from prompt
+    assert "message number 4" in blob       # newest turn still there
+
+    # chat_log still has the full thread (5 turns × user+assistant)
+    n = app.conn.execute("SELECT COUNT(*) FROM chat_log").fetchone()[0]
+    assert n == 10
 
 
 def test_default_window_is_generous_but_finite(tmp_path, monkeypatch):

@@ -12,6 +12,7 @@ from evals.helpers import ScriptedClient, make_waku, response, text_block, tool_
 
 
 def test_turn_meta_is_saved_with_gate_and_iterations(tmp_path):
+    """有工具调用时，assistant 行应持久化 gate、iterations、tools、model 等 meta。"""
     gate = response([text_block('{"retrieve": true, "query": "alex", "reason": "asks about alex"}')])
     turn = [
         response([tool_block("save_note", {"subject": "alex", "content": "likes mornings"})], "tool_use"),
@@ -34,6 +35,7 @@ def test_turn_meta_is_saved_with_gate_and_iterations(tmp_path):
 
 
 def test_no_tool_turn_still_saves_meta(tmp_path):
+    """无工具调用时仍应写入 meta，gate 为 skip，tools 为空列表。"""
     gate = response([text_block('{"retrieve": false, "query": "", "reason": "math"}')])
     app = make_waku(tmp_path / "home", client=ScriptedClient([gate, response([text_block("4")])]))
     app.respond("what is 2+2?")
@@ -46,7 +48,7 @@ def test_no_tool_turn_still_saves_meta(tmp_path):
 
 
 def test_old_rows_without_meta_are_tolerated(tmp_path):
-    """A row written before meta existed (NULL) must not break anything."""
+    """meta 出现前写入的旧行（NULL）必须能兼容，不能导致崩溃。"""
     app = make_waku(tmp_path / "home", client=ScriptedClient([]))
     app.memory.log_chat("hi", "hello", session_id="s1", source="cli", meta=None)
     row = app.conn.execute(

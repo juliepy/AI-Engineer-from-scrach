@@ -1,4 +1,4 @@
-# Waku Agent 学习大纲
+# Hermes Agent small 源码 学习大纲
 
 本地优先的个人助手教学仓库。目标：一个下午读懂严肃 Agent 的四大支柱 —— **Harness · Loop · Memory · Eval/LLM-Ops**。
 
@@ -320,29 +320,21 @@ function flow（Memory）
 | 4.4 | 发布门禁 | `waku/ops/release_gate.py`、`make gate` |
 | 4.5 | 评分 / 对比 / 展示 | `scoring.py`、`compare_history.py`、`show_trace.py` |
 
-**检查点：** 跑 `make eval` 或单测；理解「确定性 100% + judge 过阈值」才 ship。
+**检查点：** 先 `uv pip install -e ".[eval]"`，再跑确定性评测；理解「确定性全过 + judge 过阈值」才 ship。
+
+```powershell
+uv pip install -e ".[eval]"
+uv run python -m pytest -q evals/deterministic
+uv run python -m waku.ops.release_gate
+```
 
 ```mermaid
 flowchart LR
-    RUN["每轮 respond()"]
-    TRACE["Tracer<br/>.waku/traces/*.jsonl"]
-    DET["evals/deterministic<br/>0/1 pytest"]
-    JUD["evals/judge<br/>打分 ≠ 混用"]
-    RG{{"release_gate.run()<br/>make gate"}}
-    SHIP["ship / 拦下"]
-
-    RUN -->|event| TRACE
-    DET --> RG
-    JUD --> RG
-    RG -->|det 100% + judge OK| SHIP
-    RG -->|任一失败| SHIP
-
-    classDef ops fill:#D5DBE0,stroke:#2F3A42,color:#14191E,stroke-width:3px
-    classDef gate fill:#EAD9B8,stroke:#6A5230,color:#1F1710,stroke-width:3px
-    classDef run fill:#E8DCC8,stroke:#5C4630,color:#1F1710,stroke-width:3px
-    class TRACE,DET,JUD ops
-    class RG gate
-    class RUN,SHIP run
+  RUN[respond] --> TRACE[traces jsonl]
+  DET[deterministic 0/1] --> RG{release_gate}
+  JUD[judge score] --> RG
+  RG -->|pass| SHIP[ship]
+  RG -->|fail| BLOCK[block]
 ```
 
 ```text
@@ -353,13 +345,12 @@ function flow（Eval / LLM-Ops）
     ... run_loop 里 notify("llm"|"tool"|"gate"|...)
   Tracer.end_turn(reply, iterations)
 
-  # 评测（永不混用）
-  make eval
-    pytest evals/deterministic/       # 工具有没有对？0/1
-    pytest evals/judge/               # 回答好不好？打分
+  # 评测（永不混用）— Windows 无 make 时用下面
+  uv run python -m pytest -q evals/deterministic/   # 工具有没有对？0/1
+  uv run python -m pytest -q evals/judge/           # 回答好不好？打分
 
   # 发布门
-  make gate  →  release_gate.main()
+  uv run python -m waku.ops.release_gate
     rc_det, counts = run("deterministic")
     rc_jud, counts = run("judge")       # 有 key 才跑
     report(...) → .waku/eval_report.json
@@ -496,8 +487,7 @@ flowchart LR
 │   ├── deterministic/        # 0/1 确定性
 │   │   ├── test_*.py
 │   │   └── ...
-│   └── judge/                # LLM-as-judge
-│       ├── anthropic_judge.py
+│   └── judge/                # LLM-as-judge（prompt 打分）
 │       └── test_response_quality.py
 │
 ├── examples/

@@ -71,5 +71,10 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["waku"]
 
+[tool.pytest.ini_options]
+markers = [
+    "live: calls the real provider (model+prompt behavior; may vary by WAKU_PROVIDER)",
+]
+
 [tool.ruff]
 line-length = 100

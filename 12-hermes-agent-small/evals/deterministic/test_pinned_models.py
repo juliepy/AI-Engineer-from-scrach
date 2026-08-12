@@ -28,7 +28,14 @@ def home(tmp_path, monkeypatch):
     """Point every load_settings() at a throwaway home, run from there so
     apply_settings's find_dotenv writes to a throwaway .env, and clear all
     provider keys so the default shortlist is empty unless a test sets one."""
+    import os
+
     monkeypatch.setenv("WAKU_HOME", str(tmp_path))
+    # Always setenv (not delenv): pytest delenv(raising=False) does NOT undo
+    # later os.environ[k]=v writes from apply_settings — that left
+    # WAKU_MODEL=kimi-k3 stuck on deepseek and 400'd live evals.
+    for var in ("WAKU_PROVIDER", "WAKU_MODEL", "WAKU_SMALL_MODEL", "WAKU_EPISODIC_STORE"):
+        monkeypatch.setenv(var, os.environ.get(var, ""))
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".env").write_text("")
     for var in PROVIDER_KEYS:
