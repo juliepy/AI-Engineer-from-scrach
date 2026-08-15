@@ -40,11 +40,82 @@ flowchart LR
     class entry,interactive,core wrap
 ```
 
+源码根目录：`D:\workspace\doc\面试狂魔\人工智能面试题\pi`。下文路径相对该根目录。
+
+文档里的 **Pi Core** = `packages/agent`（`@earendil-works/pi-agent-core`）。**Pi Interactive** = `packages/coding-agent`（`@earendil-works/pi-coding-agent`）。LLM 适配在 `packages/ai`，终端渲染在 `packages/tui`。
+
+---
+
+## 源码目录
+
+```text
+pi/
+├── packages/
+│   ├── agent/                 Core：agent loop、session 树、compaction
+│   ├── ai/                    多提供商 LLM API（Anthropic / OpenAI / Gemini / ...）
+│   ├── coding-agent/          Interactive：CLI、TUI 组装、tools、skills、extensions
+│   ├── tui/                   自研终端 UI（差分渲染、主屏 / 备用屏）
+│   ├── telemetry/             遥测契约
+│   ├── protocol/              RPC 编解码
+│   ├── client/ · server/      进程间协议客户端 / 服务端
+│   ├── evals/                 评测
+│   └── session-backends/      session 存储后端（如 sqlite-node）
+└── packages/coding-agent/examples/extensions/   官方扩展示例
+```
+
+核心包展开：
+
+```text
+packages/agent/src/
+├── agent-loop.ts              循环：LLM ↔ tool call
+├── agent.ts                   Agent 封装
+├── stream-fn.ts               流式调用边界
+└── harness/
+    ├── agent-harness.ts       harness 组装
+    ├── system-prompt.ts       skills 段落格式化
+    ├── skills.ts · prompt-templates.ts
+    ├── compaction/compaction.ts
+    ├── session/               parentId 树、JSONL fork
+    └── tools/                 Core 侧工具实现
+
+packages/coding-agent/src/
+├── cli.ts                     `pi` 入口（设 process.title，再调 main）
+├── main.ts                    解析参数、加载扩展、创建 session、选模式
+├── config.ts                  ~/.pi/agent、.pi
+├── core/
+│   ├── agent-session.ts       Interactive 侧 session / navigateTree
+│   ├── agent-session-runtime.ts  fork / clone / 换 session
+│   ├── session-manager.ts     JSONL 树、branch、createBranchedSession
+│   ├── system-prompt.ts       buildSystemPrompt()
+│   ├── resource-loader.ts     SYSTEM.md / AGENTS.md / skills / extensions
+│   ├── skills.ts · prompt-templates.ts · slash-commands.ts
+│   ├── settings-manager.ts
+│   ├── tools/                 read bash edit write grep find ls
+│   ├── extensions/            types / loader / runner
+│   └── compaction/
+└── modes/
+    ├── interactive/           TUI 交互（interactive-mode.ts）
+    ├── rpc/                   stdin/stdout JSONL
+    └── print-mode.ts          `pi -p`
+
+packages/tui/src/
+├── tui.ts · tui-main-screen.ts · tui-alt-screen.ts
+├── components/                editor、markdown、scroll-view、v-stack、...
+└── layout.ts
+
+packages/ai/src/
+├── providers/                 每个后端一个文件（openai.ts、anthropic.ts、...）
+└── models.generated.ts        由脚本生成，不要手改
+```
+
+运行时数据（不在仓库里）：`~/.pi/agent/`（`settings.json`、`AGENTS.md`、`SYSTEM.md`、`sessions/`、`extensions/`、`skills/`、`prompts/`）。
+
 ---
 
 ## 目录
 
 - [Pi 架构全解析](#pi-架构全解析)
+- [源码目录](#源码目录)
 - [一、Pi Core：智能体循环（Agent Loop）](#一pi-core智能体循环agent-loop)
   - [1. 初始化上下文（Initialize Context）](#1-初始化上下文initialize-context)
   - [2. 变换上下文（Transformation）](#2-变换上下文transformation)
@@ -68,6 +139,7 @@ flowchart LR
   - [Skills](#skills)
   - [Custom prompts](#custom-prompts)
   - [Skills 工作流](#skills-工作流)
+- [十一、为什么用 TypeScript 而不是 Python](#十一为什么用-typescript-而不是-python)
 - [小结](#小结)
 
 ---
@@ -114,6 +186,13 @@ flowchart TD
 - 其他预装 agentic loop 的库（import 即可使用）
 
 Pi 这一套完全自研。
+
+| 路径 | 看什么 |
+|------|--------|
+| `packages/agent/src/agent-loop.ts` | `agentLoop()`：LLM 调用与 tool 循环 |
+| `packages/agent/src/agent.ts` | Agent 封装 |
+| `packages/agent/src/harness/agent-harness.ts` | Core harness 组装 |
+| `packages/coding-agent/src/core/agent-session.ts` | Interactive 把 prompt 送进 Core |
 
 ---
 
@@ -176,6 +255,14 @@ flowchart TB
 - **进行中的对话**：包含消息历史。
 - **已被 compact 的对话**：消息历史可被 **上一轮历史的摘要（summary）** 替换。
 
+| 路径 | 看什么 |
+|------|--------|
+| `packages/coding-agent/src/core/system-prompt.ts` | `buildSystemPrompt()`：default / SYSTEM.md / APPEND / AGENTS / skills / cwd |
+| `packages/coding-agent/src/core/resource-loader.ts` | 发现 `SYSTEM.md`、`APPEND_SYSTEM.md`、`AGENTS.md` / `CLAUDE.md` |
+| `packages/coding-agent/src/core/skills.ts` | `formatSkillsForPrompt()`：系统提示里只放 description |
+| `packages/agent/src/harness/system-prompt.ts` | Core 侧 skills XML 块 |
+| `packages/coding-agent/src/core/tools/index.ts` | 工具 schema 进入模型 tool 列表 |
+
 ---
 
 ### 2. 变换上下文（Transformation）
@@ -186,16 +273,78 @@ flowchart TB
 
 Compact 的含义：把历史中的全部消息交给 LLM **做摘要**。
 
+| 路径 | 看什么 |
+|------|--------|
+| `packages/agent/src/harness/compaction/compaction.ts` | `shouldCompact()`、`compact()`、`generateSummary()` |
+| `packages/coding-agent/src/core/compaction/` | Interactive 侧压缩入口 |
+
 ---
 
 ### 3. 调用大语言模型（LLM Call）
 
-调用当前配置的提供商上的模型，例如 OpenAI GPT-5、Anthropic、Kimi、MiniMax。
+Pi 可对接三类后端：**订阅账号**、**API Key**、**自定义 / 本地模型**。调用当前配置的提供商上的模型后，模型可能返回 **tool call**（更新文件、读文件、搜索互联网等）。工具把结果返回给 LLM；LLM 可再次发起 tool call，循环直到不再需要工具，再给出文本回复。
 
-模型可能返回 **tool call**（更新文件、读文件、搜索互联网等）。工具把结果返回给 LLM；LLM 可再次发起 tool call，循环直到不再需要工具，再给出文本回复。
+```mermaid
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "16px", "background": "#000000", "lineColor": "#CBD5E1", "clusterBkg": "#111111", "clusterBorder": "#C4B5FD", "titleColor": "#FDE68A", "edgeLabelBackground": "#111111"}}}%%
+flowchart TB
+    PI["Pi 可对接订阅、API Key 与本地模型"]
+
+    PI --> SUB
+    PI --> API
+    PI --> CUS
+
+    subgraph SUB["订阅 SUBSCRIPTION"]
+        S1["ChatGPT Plus / Pro"]
+        S2["GitHub Copilot"]
+        S3["Claude Pro / Max<br/>不支持"]
+    end
+
+    subgraph API["API Key"]
+        A1["Anthropic · OpenAI · Gemini"]
+        A2["Groq · Mistral · xAI"]
+        A3["OpenRouter · Fireworks"]
+        A4["DeepSeek · MiniMax"]
+        A5["Kimi / Moonshot · GLM · 通义千问"]
+    end
+
+    subgraph CUS["自定义 CUSTOM"]
+        C1["Ollama · LM Studio · vLLM"]
+        C2["OpenAI 兼容代理"]
+        C3["扩展自定义 Provider"]
+    end
+
+    classDef pi fill:#FBCFE8,stroke:#F9A8D4,color:#831843
+    classDef sub fill:#FEF08A,stroke:#FDE047,color:#713F12
+    classDef api fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A
+    classDef cus fill:#E9D5FF,stroke:#D8B4FE,color:#6B21A8
+    classDef nosup fill:#FED7AA,stroke:#FDBA74,color:#9A3412
+    classDef wrap fill:#111111,stroke:#C4B5FD,color:#FDE68A
+
+    class PI pi
+    class S1,S2 sub
+    class S3 nosup
+    class A1,A2,A3,A4,A5 api
+    class C1,C2,C3 cus
+    class SUB,API,CUS wrap
+```
+
+三类接入：
+
+| 类型 | 说明 | 代表 |
+|------|------|------|
+| **订阅** | 用现有会员账号，不必另开 API | ChatGPT Plus/Pro、GitHub Copilot。Claude Pro/Max **不支持** |
+| **API Key** | 官方或聚合网关的密钥 | Anthropic、OpenAI、Gemini、Groq、Mistral、xAI、OpenRouter、Fireworks；国产 **DeepSeek、MiniMax、Kimi（Moonshot）、智谱 GLM、通义千问** |
+| **自定义** | 本地推理或自建兼容端点 | Ollama、LM Studio、vLLM、OpenAI 兼容代理；也可通过扩展注册自定义 Provider |
 
 - 复杂任务：可达 **上百次** tool call。
 - 仅搜索网页：通常几次。
+
+| 路径 | 看什么 |
+|------|--------|
+| `packages/ai/src/providers/` | 各提供商适配（`openai.ts`、`anthropic.ts`、`google.ts`、`github-copilot.ts`、`deepseek.ts`、`ollama` 走 OpenAI 兼容） |
+| `packages/agent/src/stream-fn.ts` | 循环与 LLM 流的边界 |
+| `packages/coding-agent/src/core/model-registry.ts` | Interactive 侧模型注册 |
+| `packages/coding-agent/examples/extensions/custom-provider-anthropic/` | 用 extension 注册自定义 Provider |
 
 ---
 
@@ -315,6 +464,16 @@ JSONL 中 **所有分叉消息仍在同一文件、同一目录**。树是逻辑
 - **每一行 = 一条消息**
 - 字段包括：消息类型（可为 message）、**id**、**parent id**（建树）、**timestamp**、消息正文
 
+| 路径 | 看什么 |
+|------|--------|
+| `packages/coding-agent/src/core/session-manager.ts` | JSONL 树：`id` / `parentId`、`branch()`、`getTree()`、`createBranchedSession()`、`continueRecent()` |
+| `packages/coding-agent/src/core/agent-session.ts` | `navigateTree()`：同文件切枝（`/tree`） |
+| `packages/coding-agent/src/core/agent-session-runtime.ts` | `fork()`：新开 session 文件（`/fork`、`/clone`） |
+| `packages/coding-agent/src/modes/interactive/components/tree-selector.ts` | `/tree` UI |
+| `packages/agent/src/harness/session/types.ts` | Core 侧 `parentId`、`ForkOptions` |
+| `packages/agent/src/harness/session/jsonl/` | Core 侧 JSONL 持久化与 `fork()` |
+| `packages/coding-agent/src/config.ts` | `getAgentDir()` → `~/.pi/agent`；session 目录在其下 `sessions/` |
+
 ---
 
 ## 三、Tools（工具）
@@ -376,6 +535,17 @@ flowchart LR
     class builtin,extra,optional,readonly wrap
 ```
 
+| 路径 | 看什么 |
+|------|--------|
+| `packages/coding-agent/src/core/tools/index.ts` | `allToolNames`、`createCodingTools()`、`createReadOnlyTools()` |
+| `packages/coding-agent/src/core/tools/read.ts` | read |
+| `packages/coding-agent/src/core/tools/bash.ts` | bash |
+| `packages/coding-agent/src/core/tools/edit.ts` | edit |
+| `packages/coding-agent/src/core/tools/write.ts` | write |
+| `packages/coding-agent/src/core/tools/grep.ts` · `find.ts` · `ls.ts` | 额外工具；只读模式才默认启用 |
+| `packages/agent/src/harness/tools/` | Core 侧对应实现 |
+| `packages/coding-agent/src/cli/args.ts` | `--tools` |
+
 ---
 
 ## 四、Extensions（扩展）
@@ -426,6 +596,14 @@ flowchart TB
     class T,C,K,F,S,M cap
 ```
 
+| 路径 | 看什么 |
+|------|--------|
+| `packages/coding-agent/src/core/extensions/types.ts` | `ExtensionAPI`：`registerTool` / `registerCommand` / `on(...)` / `ui` / `registerProvider` |
+| `packages/coding-agent/src/core/extensions/loader.ts` | jiti 加载 `extensions/*.ts`，无需先编译 |
+| `packages/coding-agent/src/core/extensions/runner.ts` | 事件分发 |
+| `packages/coding-agent/docs/extensions.md` | 用法 |
+| `packages/coding-agent/examples/extensions/` | 官方示例（tools、commands、plan-mode、subagent、...） |
+
 ---
 
 ## 五、Skills 与 System Prompt（技能与系统提示）
@@ -473,6 +651,15 @@ flowchart TD
 
 以上为 Pi Core 的默认系统提示组装方式。掌握这些即可理解并复刻 Core 层。
 
+磁盘上的文件名是 **`SYSTEM.md` / `APPEND_SYSTEM.md`**（大写），不是 `system.md`。
+
+| 路径 | 看什么 |
+|------|--------|
+| `packages/coding-agent/src/core/system-prompt.ts` | `buildSystemPrompt()` |
+| `packages/coding-agent/src/core/resource-loader.ts` | `discoverSystemPromptFile()`、`discoverAppendSystemPromptFile()`、`loadContextFileFromDir()` |
+| `packages/coding-agent/src/core/skills.ts` | `loadSkills()`、`formatSkillsForPrompt()` |
+| `packages/coding-agent/src/cli/args.ts` | `--system-prompt` |
+
 ---
 
 ## 六、Pi Core 与 Interactive / 其他 UI 的关系
@@ -509,16 +696,25 @@ flowchart LR
 
 开箱 TUI 为 Pi 定制实现。可以在 Core 之上接入自定义 GUI 或另一套 TUI。
 
+| 路径 | 看什么 |
+|------|--------|
+| `packages/agent/` | Core：loop / session / compaction |
+| `packages/ai/` | LLM 提供商 |
+| `packages/coding-agent/` | Interactive：CLI + TUI 组装 + skills/slash |
+| `packages/tui/` | 可替换的终端渲染库 |
+| `packages/coding-agent/src/modes/rpc/` | 给 Python / Go / 其他 UI 用的 JSONL RPC |
+| `packages/coding-agent/src/core/sdk.ts` | Node 进程内 SDK |
+
 ---
 
 ## 七、CLI 入口（CLI Entry Point）
 
 新建 session、进入 CLI 时，逻辑分布在两个文件：
 
-1. **`client.ts`**
+1. **`cli.ts`**
 2. **`main.ts`**
 
-**`client.ts`**：接收 `pi` 命令，设置 process title 等，然后 **调用 `main`**。
+**`cli.ts`**：接收 `pi` 命令，设置 process title 等，然后 **调用 `main`**。
 
 **`main.ts`**：
 
@@ -534,7 +730,7 @@ flowchart LR
 ```mermaid
 %%{init: {"theme": "dark", "themeVariables": {"fontSize": "16px", "background": "#000000", "lineColor": "#CBD5E1", "clusterBkg": "#111111", "clusterBorder": "#C4B5FD", "titleColor": "#FDE68A", "edgeLabelBackground": "#111111"}}}%%
 flowchart TD
-    CMD["pi 命令"] --> CLIENT["client.ts<br/>接收命令、设置 process title"]
+    CMD["pi 命令"] --> CLIENT["cli.ts<br/>接收命令、设置 process title"]
     CLIENT --> MAIN["main.ts"]
     MAIN --> P["解析 arguments"]
     P --> CFG["resolve configuration<br/>工作目录等"]
@@ -564,6 +760,15 @@ flowchart TD
     class S modeS
 ```
 
+| 路径 | 看什么 |
+|------|--------|
+| `packages/coding-agent/src/cli.ts` | shebang + `process.title` + `main(argv)` |
+| `packages/coding-agent/src/main.ts` | 参数、配置、扩展、`createAgentSession`、分发模式 |
+| `packages/coding-agent/src/cli/args.ts` | `-c` / `-r` / `--tools` / `--mode` |
+| `packages/coding-agent/src/modes/interactive/interactive-mode.ts` | interactive |
+| `packages/coding-agent/src/modes/rpc/rpc-mode.ts` | RPC |
+| `packages/coding-agent/src/modes/print-mode.ts` | print / STDIO |
+
 ---
 
 ## 八、Terminal User Interface（终端用户界面）
@@ -581,6 +786,17 @@ TUI 模块化布局：
 1. **完全自研**，不使用 Textual 等库。
 2. **Component-based（基于组件）**：每个组件负责自身 **rendering（渲染）**、**inputs（输入）**，并可 **动态更新**。
 3. 可订阅 agent core 发出的事件。
+
+| 路径 | 看什么 |
+|------|--------|
+| `packages/tui/src/tui.ts` | 共享 `TUI` 接口 |
+| `packages/tui/src/tui-main-screen.ts` | 主屏：保留终端 scrollback |
+| `packages/tui/src/tui-alt-screen.ts` | 备用屏：应用自己管滚动 |
+| `packages/tui/src/components/editor.ts` | 输入框 |
+| `packages/tui/src/components/markdown.ts` | 消息 Markdown |
+| `packages/coding-agent/src/modes/interactive/interactive-mode.ts` | 把 Core 事件接到 TUI 组件 |
+| `packages/coding-agent/src/modes/interactive/components/assistant-message.ts` | 上方消息 |
+| `packages/coding-agent/src/modes/interactive/components/footer.ts` | 底部状态栏 |
 
 ---
 
@@ -642,7 +858,7 @@ flowchart TD
 
 代码路径：
 
-`packages/agent/source/harness/compaction/compactions.ts`
+`packages/agent/src/harness/compaction/compaction.ts`
 
 其中的 **summarization system prompt** 大意：
 
@@ -664,6 +880,13 @@ flowchart TD
 更新已有摘要时（**update existing summary**），使用另一套略有差异的 prompt。
 
 在仓库中 resume session 并执行 compact 后，用 **Ctrl-O** 展开，可见与上述结构一致的输出：goal、constraints and preferences、progress（done / in progress / blocked）、key decisions、next steps、critical context、original request、early progress 等。
+
+| 路径 | 看什么 |
+|------|--------|
+| `packages/agent/src/harness/compaction/compaction.ts` | `shouldCompact()`、`compact()`、`generateSummary()`、摘要 prompt |
+| `packages/agent/src/harness/compaction/utils.ts` | 会话序列化、文件操作列表 |
+| `packages/coding-agent/src/core/compaction/` | Interactive 侧触发 |
+| `packages/coding-agent/src/modes/interactive/components/compaction-summary-message.ts` | Ctrl-O 展开摘要 |
 
 ---
 
@@ -733,6 +956,76 @@ sequenceDiagram
     C-->>U: 按技能继续工作
 ```
 
+| 路径 | 看什么 |
+|------|--------|
+| `packages/coding-agent/src/core/skills.ts` | 加载 `SKILL.md`；系统提示只挂 description |
+| `packages/coding-agent/src/core/prompt-templates.ts` | `expandPromptTemplate()`：斜杠命令在 Interactive 展开 |
+| `packages/coding-agent/src/core/slash-commands.ts` | `SlashCommandSource = "extension" \| "prompt" \| "skill"` |
+| `packages/coding-agent/src/modes/interactive/interactive-mode.ts` | 拦截 `/skill:` 与自定义 `/命令` |
+| `packages/coding-agent/src/modes/interactive/components/skill-invocation-message.ts` | skill 块渲染 |
+| `packages/agent/src/harness/skills.ts` | Core 侧 skills 列表 |
+| `packages/agent/src/harness/prompt-templates.ts` | Core 侧 template（若走 harness） |
+
+---
+
+## 十一、为什么用 TypeScript 而不是 Python
+
+Pi 用 TypeScript，不是因为「TS 比 Python 更适合 AI」。Python 赢在训练、数值计算、数据管线。Pi 做的是另一类工作：**编码 harness + 终端 UI + 可热加载扩展**。
+
+```mermaid
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "16px", "background": "#000000", "lineColor": "#CBD5E1", "clusterBkg": "#111111", "clusterBorder": "#C4B5FD", "titleColor": "#FDE68A", "edgeLabelBackground": "#111111"}}}%%
+flowchart LR
+    subgraph py["Python 更合适"]
+        P1["训练 / numpy"]
+        P2["数据管线"]
+        P3["LangChain 编排"]
+    end
+
+    subgraph ts["Pi 实际在做"]
+        T1["同时等 LLM 流、工具、键盘、子进程"]
+        T2["自研 TUI"]
+        T3["Agent 写 .ts 扩展，立刻 /reload"]
+    end
+
+    classDef py fill:#FEF08A,stroke:#FDE047,color:#713F12
+    classDef ts fill:#A5F3FC,stroke:#67E8F9,color:#155E75
+    classDef wrap fill:#111111,stroke:#C4B5FD,color:#FDE68A
+
+    class P1,P2,P3 py
+    class T1,T2,T3 ts
+    class py,ts wrap
+```
+
+**（1）扩展必须和宿主同语言**
+
+这是最硬的约束。Pi 的卖点是：缺功能就让它自己写 extension，然后 `/reload`。
+
+扩展是 **TypeScript 模块**，用 `jiti` 直接加载 `.ts`，不用先编译。Agent 改 `~/.pi/agent/extensions/*.ts`，宿主立刻执行同一份代码。若核心是 Python，要么再做一套插件 ABI，要么把 CPython 嵌进去——和「让 agent 改自己」相反。
+
+**（2）产品是 TUI，不是 notebook**
+
+作者在 Node 上自研 `pi-tui`：差分渲染、主屏 / 备用屏、流式 Markdown。TUI 与 extension 共享类型（`ctx.ui`、widget、confirm）。Python 也能做 TUI，但 Pi 把终端渲染当成一等包，和 loop、扩展 API 绑在一起。
+
+**（3）分发和类型对得上**
+
+- 用户：`npm i -g`；Pi Package 走 npm / git
+- 模型列表生成进 `models.generated.ts`；工具 schema 用 Typebox
+- 发布：Bun 打独立二进制
+- 同类产品（Claude Code、OpenCode、Amp）也是 TS
+
+**（4）需要 Python 时走 RPC，不重写核心**
+
+`pi --mode rpc` 用 stdin/stdout JSONL。文档里有 Python 客户端示例。Python 当 **调用方**，TypeScript 当 **harness**。Node 进程内嵌入走 SDK。
+
+| 路径 | 看什么 |
+|------|--------|
+| `packages/coding-agent/src/core/extensions/loader.ts` | jiti 加载 `.ts`，无需编译 |
+| `packages/coding-agent/docs/extensions.md` | 「pi can create extensions」 |
+| `packages/tui/src/` | 自研 TUI |
+| `packages/coding-agent/src/modes/rpc/` | 给 Python / Go 用的 JSONL RPC |
+| `packages/coding-agent/docs/rpc.md` | 含 Python 客户端示例 |
+| `packages/ai/src/models.generated.ts` | 模型目录生成成 TS 类型（不要手改） |
+
 ---
 
 ## 小结
@@ -741,5 +1034,6 @@ sequenceDiagram
 |------|------|
 | **Pi Core** | 上下文初始化、变换 / compact、LLM 循环、工具执行、JSONL 会话树 |
 | **Pi Interactive** | CLI 入口、自研 TUI、扩展加载、slash / skill 拦截与展开 |
+| **语言选择** | TS 服务 harness / TUI / 热加载扩展；Python 通过 RPC 调用，不进 Core |
 
 Core 可被 TUI、RPC、SDK 及其他 UI 复用。Interactive 负责人机界面与「命令到消息」的翻译，不把 skill 全文提前塞进 Core。
