@@ -12,6 +12,8 @@
 - [五、overflow 与 threshold](#五overflow-与-threshold)
 - [对照](#对照)
 
+`agent_end` 之后才检查 compact，见 [`03-events.md`](03-events.md)。JSONL 树与 `appendCompaction` 见 [`04-sessions.md`](04-sessions.md)。
+
 ---
 
 ## 一、不在 runLoop 里

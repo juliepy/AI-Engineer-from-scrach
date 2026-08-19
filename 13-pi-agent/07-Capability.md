@@ -1,4 +1,4 @@
-# Pi 能力边缘
+# Pi Capability at the Edges
 
 
 ---
@@ -190,13 +190,13 @@ flowchart TB
     class row1,row2 hid
 ```
 
-事件挂在同一条总线上。用户输入以 `/` 开头且命中扩展命令则 **不进 Core**。`tool_call` / `tool_result` 对应 loop 里的 `beforeToolCall` / `afterToolCall`。`session_before_compact` 可取消或自己交摘要。
+事件挂在同一条总线上。用户输入以 `/` 开头且命中扩展命令则 **不进 Core**。`tool_call` / `tool_result` 对应 loop 里的 `beforeToolCall` / `afterToolCall`（HITL 见 `06-HITL.md`）。`session_before_compact` 可取消或自己交摘要。
 
 | 钩子 | 典型用途 |
 |------|----------|
 | `registerTool` | web search、自定义函数 |
 | `registerCommand` | `/plan`、`/todo` 这类斜杠流程 |
-| `on("tool_call")` | 权限确认、拦截危险调用 |
+| `on("tool_call")` | 权限确认、拦截危险调用（`06-HITL.md`） |
 | `on("agent_end")` | 记状态、改下一轮工具集 |
 | `registerProvider` | 公司代理、本地模型 |
 | `ui.confirm` | 权限弹窗（Core 不内置） |

@@ -12,6 +12,8 @@
 - [五、入口](#五入口)
 - [对照](#对照)
 
+循环怎么把消息写进 JSONL，见 [`03-events.md`](03-events.md)。compact 条目怎么裁 context，见 [`05-compaction.md`](05-compaction.md)。
+
 ---
 
 ## 一、按工作目录落盘
@@ -108,7 +110,7 @@ flowchart TB
 
 `getTree()` 用 `parentId` 把浅拷贝拼成树。断掉的 parent 当根。子节点按 timestamp 排。`/tree` 看到的就是这个结构。
 
-循环里 `message_end` 时 `sessionManager.appendMessage`，不等整轮 `agent_end`。UI 和 JSONL 订同一条事件总线。
+循环里 `message_end` 时 `sessionManager.appendMessage`，不等整轮 `agent_end`。UI 和 JSONL 订同一条事件总线。何时写、写哪些 role，见 `03-events.md`。
 
 ---
 
@@ -236,17 +238,3 @@ function flow（入口）
 Core 侧 `packages/agent/src/harness/session/` 是同一套树：`parentId`、JSONL、`fork()`。Interactive 的 `SessionManager` 是产品层实现。另有 `session-backends/sqlite-node` 可换存储。
 
 ---
-
-## 对照
-
-大纲说「session 是树」。读源码时把「文件里的树」和「送给 LLM 的 path」分开。
-
-| 大纲 | 源码 |
-|------|------|
-| session 是列表 | JSONL 行列表 + `id`/`parentId` 树；当前 path 由 leaf 决定 |
-| `/tree` 开新对话 | 同文件移动 leaf；旧枝仍在 |
-| `/fork` 也是切枝 | 新文件，只拷根到叶 |
-| compact 改写历史 | 追加 `compaction` 条目；拼 context 时跳过旧消息 |
-| 等一轮结束再落盘 | `message_end` 就 append |
-
-读：`session-manager.ts` → `agent-session.ts` `navigateTree` → `agent-session-runtime.ts` `fork` → `harness/session/types.ts` → `interactive-mode.ts` `/tree` `/fork` `/clone`。

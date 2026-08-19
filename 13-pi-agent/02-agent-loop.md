@@ -17,6 +17,8 @@
 - [五、Compaction](#五compaction)
 - [对照](#对照)
 
+事件总线和 JSONL 落盘见 [`03-events.md`](03-events.md)。compact 见 [`05-compaction.md`](05-compaction.md)。HITL 见 [`06-HITL.md`](06-HITL.md)。
+
 ---
 
 ## 一、三层调用栈
@@ -573,108 +575,11 @@ flowchart TB
 
 ## 四、事件与落盘
 
-循环对外只发 `AgentEvent`。UI 和 JSONL 订同一条总线。`processEvents` 先改内部 state，再按订阅顺序 await listener。`agent_end` 是最后一条事件，但 `waitForIdle` 要等这些 listener 做完。JSONL 在 `message_end` 时追加，不等整轮结束。
-
-```text
-function flow（事件）
-  agent_start
-    turn_start
-      message_start / message_end              # 初始 prompt（continue 没有）
-      message_start → message_update* → message_end   # assistant 流
-      tool_execution_start
-        tool_execution_update*
-      tool_execution_end
-      message_start / message_end              # 每条 toolResult
-    turn_end
-  agent_end
-
-  Agent.processEvents(event):
-    update streamingMessage / pendingToolCalls / errorMessage
-    if message_end: state.messages.push
-    await each subscribe() listener            # 按订阅顺序
-    # waitForIdle 等 listener 做完，不是等 agent_end 刚发出
-
-  AgentSession._handleAgentEvent:
-    emit to extensions → TUI
-    if message_end and role in (user, assistant, toolResult):
-      sessionManager.appendMessage            # JSONL 按事件追加
-```
-
-```mermaid
-%%{init: {"theme": "dark", "themeVariables": {"fontSize": "16px", "background": "#000000", "lineColor": "#CBD5E1", "clusterBkg": "#111111", "clusterBorder": "#C4B5FD", "titleColor": "#FDE68A", "edgeLabelBackground": "#111111"}}}%%
-flowchart TB
-    LOOP["runLoop emit"] --> PE["Agent.processEvents"]
-    PE --> L["subscribe listeners"]
-    L --> SES["_handleAgentEvent"]
-    SES --> EXT["extensions"]
-    SES --> TUI["TUI"]
-    SES --> JSONL["sessionManager.appendMessage"]
-
-    classDef a fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A
-    classDef b fill:#A5F3FC,stroke:#67E8F9,color:#155E75
-    classDef c fill:#E9D5FF,stroke:#D8B4FE,color:#6B21A8
-    classDef d fill:#FBCFE8,stroke:#F9A8D4,color:#831843
-    classDef e fill:#BBF7D0,stroke:#86EFAC,color:#14532D
-
-    class LOOP a
-    class PE,L b
-    class SES c
-    class EXT,TUI d
-    class JSONL e
-```
-
----
+循环对外只发 `AgentEvent`。UI 和 JSONL 订同一条总线。JSONL 在 `message_end` 追加，不等整轮结束。展开见 [`03-events.md`](03-events.md)。
 
 ## 五、Compaction
 
-`runLoop` 不调用 compact。计量优先用上一条 assistant 的 usage，不用「字符 / 4」估整窗。阈值是 `tokens > contextWindow - reserveTokens`。overflow 会先摘掉失败的 assistant 再摘要，必要时 `continue()`；阈值触发只 compact，不从 assistant 续跑。
-
-```text
-function flow（compaction）
-  时机 1: prompt() 发新消息前
-  时机 2: _handlePostAgentRun，agent_end 后
-
-  _checkCompaction(assistant):
-    skip if disabled / aborted / 消息早于最近 compact
-    contextTokens = usage.totalTokens
-                 || (input + output + cacheRead + cacheWrite)
-    if overflow or recoverable length:
-      drop failed assistant
-      compact → maybe continue()                # willRetry
-    if shouldCompact(tokens, window, settings):
-      # tokens > contextWindow - reserveTokens
-      compact                                   # 不从 assistant 续跑
-
-  compact(preparation):
-    generateSummary(history) → compactionSummary
-    retain recent tail
-    next convertToLlm wraps summary in <summary>
-```
-
-```mermaid
-%%{init: {"theme": "dark", "themeVariables": {"fontSize": "16px", "background": "#000000", "lineColor": "#CBD5E1", "clusterBkg": "#111111", "clusterBorder": "#C4B5FD", "titleColor": "#FDE68A", "edgeLabelBackground": "#111111"}}}%%
-flowchart LR
-    A["prompt 前"] --> C["_checkCompaction"]
-    B["agent_end 后"] --> C
-    C --> D{"overflow 或超过窗口 - reserve？"}
-    D -->|"是"| E["prepareCompaction + compact"]
-    D -->|"否"| F["进入或结束 runLoop"]
-    E --> F
-
-    classDef t fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A
-    classDef c fill:#E9D5FF,stroke:#D8B4FE,color:#6B21A8
-    classDef d fill:#FEF08A,stroke:#FDE047,color:#713F12
-    classDef do fill:#FBCFE8,stroke:#F9A8D4,color:#831843
-    classDef ok fill:#BBF7D0,stroke:#86EFAC,color:#14532D
-
-    class A,B t
-    class C c
-    class D d
-    class E do
-    class F ok
-```
-
-默认 `reserveTokens = 16384`，`keepRecentTokens = 20000`。
+`runLoop` 不 compact。检查在 Interactive 的 `_checkCompaction`。展开见 [`05-compaction.md`](05-compaction.md)。
 
 ---
 

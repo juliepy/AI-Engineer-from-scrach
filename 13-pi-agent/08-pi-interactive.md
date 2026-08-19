@@ -15,52 +15,15 @@
 
 ## 一、独立包，三种模式
 
-Pi Core 是 agent 本身。Pi Interactive 是另一个包：CLI + TUI + slash / skill 拦截。TUI、RPC、print 都从 `Agent.prompt` 进同一套 Core。`AgentSession` 不是第四套循环。
+Pi Core 是 agent 本身。Pi Interactive 是另一个包：CLI + TUI + slash / skill 拦截。TUI、RPC、print 都从 `Agent.prompt` 进同一套 Core。`AgentSession` 不是第四套循环。三层调用栈见 `02-agent-loop.md`。事件怎么画到 TUI / JSONL，见 `03-events.md`。
 
 ```text
-function flow（三层）
-  TUI / CLI / RPC / print
-    → AgentSession                    # Interactive 产品层
-        slash / skill / template
-        _checkCompaction
-        → Agent.prompt → runLoop      # Core
-    → _handlePostAgentRun             # retry / compact / 队列
-```
-
-```mermaid
-%%{init: {"theme": "dark", "themeVariables": {"fontSize": "16px", "background": "#000000", "lineColor": "#CBD5E1", "clusterBkg": "#111111", "clusterBorder": "#C4B5FD", "titleColor": "#FDE68A", "edgeLabelBackground": "#111111"}}}%%
-flowchart TB
-    subgraph entry["入口"]
-        TUI["TUI / CLI / RPC / print"]
-    end
-
-    subgraph interactive["Pi Interactive"]
-        SES["AgentSession"]
-        PRE["slash / skill / template<br/>拼 system prompt<br/>发 prompt 前 compact"]
-        POST["_handlePostAgentRun"]
-    end
-
-    subgraph core["Pi Core"]
-        AG["Agent.prompt"]
-        LOOP["runLoop"]
-    end
-
-    TUI --> SES
-    SES --> PRE
-    PRE --> AG
-    AG --> LOOP
-    LOOP --> POST
-    POST -->|"需要再跑"| AG
-
-    classDef e fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A
-    classDef i fill:#E9D5FF,stroke:#D8B4FE,color:#6B21A8
-    classDef c fill:#FBCFE8,stroke:#F9A8D4,color:#831843
-    classDef wrap fill:#111111,stroke:#C4B5FD,color:#FDE68A
-
-    class TUI e
-    class SES,PRE,POST i
-    class AG,LOOP c
-    class entry,interactive,core wrap
+function flow（三种模式）
+  main.ts resolveAppMode
+    stdin+stdout 都是 TTY → interactive  → InteractiveMode.run()
+    --mode rpc            → RPC          → runRpcMode（stdin/stdout JSONL）
+    pi -p / 管道 / 非 TTY → print        → runPrintMode，跑完退出
+  SDK 可直接 createAgentSession()，不经过 CLI
 ```
 
 | 层 | 文件 | 函数 |
@@ -70,16 +33,6 @@ flowchart TB
 | 组装 | `packages/coding-agent/src/core/sdk.ts` | `createAgentSession` |
 | TUI | `packages/tui/src/tui.ts` | 差分渲染、Component |
 | 交互模式 | `packages/coding-agent/src/modes/interactive/interactive-mode.ts` | 快捷键、`/tree`、回车 = steer |
-
-三种运行模式在 `main.ts` 的 `resolveAppMode`：
-
-| 模式 | 何时 | 入口 |
-|------|------|------|
-| interactive | stdin/stdout 都是 TTY | `InteractiveMode.run()` |
-| RPC | `--mode rpc` | `runRpcMode`，stdin/stdout JSONL |
-| print | `pi -p` / 管道 / 非 TTY | `runPrintMode`，跑完退出 |
-
-SDK 也可直接 `createAgentSession()`，不经过 CLI。
 
 ---
 
@@ -189,47 +142,7 @@ flowchart TB
 
 ## 四、进 Core 之前拦输入
 
-用户回车后先在 Interactive 处理。命中扩展命令则不进 Core。Skills 和 Prompt Templates 都是斜杠，处理方式不同。
-
-```text
-function flow（prompt）
-  AgentSession.prompt(text):
-    if text starts with "/" and extension command:
-      handler(args) → return                 # 不进 Core
-    emitInput() → handled | transform
-    expand /skill: and prompt template
-    if agent.isStreaming:
-      steer() or followUp() → return
-    _checkCompaction(...)
-    Agent.prompt(messages)
-```
-
-```mermaid
-%%{init: {"theme": "dark", "themeVariables": {"fontSize": "16px", "background": "#000000", "lineColor": "#CBD5E1", "edgeLabelBackground": "#111111"}}}%%
-flowchart TD
-    IN["用户输入"] --> SL{"以 / 开头？"}
-    SL -->|"扩展命令"| EXT["extension command<br/>不进 Core"]
-    SL -->|"/skill:"| SK["读 SKILL.md 全文<br/>包进 <skill>"]
-    SL -->|"/template"| TP["展开成普通 prompt"]
-    SL -->|"否"| TXT["原文当 user 消息"]
-    SK --> CORE["Agent.prompt"]
-    TP --> CORE
-    TXT --> CORE
-
-    classDef a fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A
-    classDef d fill:#FEF08A,stroke:#FDE047,color:#713F12
-    classDef x fill:#E9D5FF,stroke:#D8B4FE,color:#6B21A8
-    classDef s fill:#A5F3FC,stroke:#67E8F9,color:#155E75
-    classDef t fill:#BBF7D0,stroke:#86EFAC,color:#14532D
-    classDef c fill:#FBCFE8,stroke:#F9A8D4,color:#831843
-
-    class IN a
-    class SL d
-    class EXT x
-    class SK s
-    class TP,TXT t
-    class CORE c
-```
+用户回车后先在 Interactive 处理。命中扩展命令则不进 Core。完整分流见 `02-agent-loop.md` 第二节。这里只补 Skills 和 Prompt Templates 的差别：都是斜杠，进 Core 的东西不同。
 
 | | Skills | Prompt Templates | Extension command |
 |--|--------|------------------|-------------------|
