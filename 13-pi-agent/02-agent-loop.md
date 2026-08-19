@@ -12,7 +12,7 @@
   - [runLoop](#runloop)
   - [调用一次大模型](#调用一次大模型)
   - [工具](#工具)
-  - [停机](#停机)
+  - [停机与兜底](#停机与兜底)
 - [四、事件与落盘](#四事件与落盘)
 - [五、Compaction](#五compaction)
 - [对照](#对照)
@@ -179,7 +179,7 @@ function flow（buildSystemPrompt）
 
 ## 三、Core 循环
 
-Core 从 `Agent.prompt` 进 `runLoop`。先讲两条队列（steering / follow-up），再讲循环怎么消化它们：双层 while、调用一次大模型、跑工具、何时停。
+Core 从 `Agent.prompt` 进 `runLoop`。先讲两条队列（steering / follow-up），再讲循环怎么消化它们：双层 while、调用一次大模型、跑工具、何时停、产品层兜底。
 
 ### 队列
 
@@ -437,43 +437,137 @@ Interactive：`beforeToolCall` → 扩展 `tool_call`；`afterToolCall` → `too
 
 ---
 
-### 停机
+### 停机与兜底
 
-从里到外五道门：流失败立刻停；整批 terminate 不再因这批续 LLM；`shouldStopAfterTurn` 跳过队列；两队列都空才正常 `agent_end`；产品层 `_handlePostAgentRun` 仍可能再拉一把。一个 Agent 不能并行两个 prompt。
+先分清两层。它们问的不是同一个问题。
+
+| | 停机 | 兜底 |
+|--|------|------|
+| 谁 | Core `runLoop`（`agent-loop.ts`） | Interactive `_handlePostAgentRun`（`agent-session.ts`） |
+| 问 | **这次循环停不停** | **停完了，还开不开新一轮** |
+| 何时 | `agent.prompt()` 还在阻塞 | `prompt()` 已经返回 |
+| 结果 | 发 `agent_end` | `continue()` 或 `settled` |
+
+`agent_end` 是这次循环的**结束通知**，不是在问要不要停。后面若再跑，是新的一次 `runLoop`。一个 Agent 不能并行两个 prompt。
+
+讲的时候按时间走：Core 四道门 → `prompt()` 返回 → Interactive 才进兜底。
 
 ```text
-function flow（停机）
-  1. stopReason in (error, aborted)     → 立刻 agent_end
-  2. 整批 result.terminate == true      → 不再因这批续 LLM
-  3. shouldStopAfterTurn()              → agent_end，跳过队列
-  4. 无 tool 且两队列空                 → 正常 agent_end
-  5. _handlePostAgentRun                → 仍可能 continue
-       retry / overflow compact / agent_end 新入队
+function flow（两层关系）
+  _runAgentPrompt(messages):
+    agent.prompt(messages)                 # 阻塞；内部跑完停机四道门才返回
+    while _handlePostAgentRun():           # 兜底：再开一轮？
+      agent.continue()                     # 新的一次 runLoop
+    emit agent_settled
 ```
 
 ```mermaid
-%%{init: {"theme": "dark", "themeVariables": {"fontSize": "16px", "background": "#000000", "lineColor": "#CBD5E1", "clusterBkg": "#111111", "clusterBorder": "#C4B5FD", "titleColor": "#FDE68A", "edgeLabelBackground": "#111111"}}}%%
-flowchart TD
-    A["error / aborted"] --> Z["立刻 agent_end"]
-    B["整批 terminate"] --> T["不再因这批续 LLM"]
-    C["shouldStopAfterTurn"] --> Z2["agent_end，跳过队列"]
-    D["无 tool 且队列空"] --> Z3["正常 agent_end"]
-    E["_handlePostAgentRun"] --> C2{"还要跑？"}
-    C2 -->|"是"| CONT["Agent.continue"]
-    C2 -->|"否"| IDLE["settled"]
+%%{init: {"theme": "dark", "flowchart": {"curve": "linear", "rankSpacing": 28, "nodeSpacing": 24, "padding": 8}, "themeVariables": {"fontSize": "15px", "background": "#000000", "lineColor": "#CBD5E1", "clusterBkg": "#111111", "clusterBorder": "#A78BFA", "titleColor": "#FDE68A", "edgeLabelBackground": "#111111"}}}%%
+flowchart TB
+    P["agent.prompt()"] --> H["Core 停机：这次 runLoop 停不停"]
+    H -->|"agent_end，prompt 返回"| F{"还开不开新一轮？"}
+    F -->|是| C["continue：再进停机"]
+    F -->|否| S["settled"]
 
-    classDef bad fill:#FBCFE8,stroke:#F9A8D4,color:#831843
-    classDef mid fill:#FEF08A,stroke:#FDE047,color:#713F12
-    classDef ok fill:#BBF7D0,stroke:#86EFAC,color:#14532D
-    classDef core fill:#A5F3FC,stroke:#67E8F9,color:#155E75
+    classDef a fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A
+    classDef b fill:#A5F3FC,stroke:#67E8F9,color:#155E75
+    classDef c fill:#E9D5FF,stroke:#D8B4FE,color:#6B21A8
+    classDef d fill:#BBF7D0,stroke:#86EFAC,color:#14532D
 
-    class A,Z,Z2 bad
-    class B,T,C,E,C2 mid
-    class D,Z3,IDLE ok
-    class CONT core
+    class P a
+    class H b
+    class F,C c
+    class S d
 ```
 
-`Agent.abort()` 打当前 `AbortController`。一个 Agent 不能并行两个 prompt。
+**停机（Core）** — 按执行顺序走四道门。只有 1、3、4 发 `agent_end`。第 2 道只挡住「因这批 tool 再调 LLM」，循环可能还去 poll steering / follow-up。
+
+```text
+function flow（停机）
+  msg = streamAssistantResponse()
+
+  1. stopReason in (error, aborted)
+       emit turn_end, agent_end → return     # 立刻整 run 退出
+
+  2. 有 tool 且整批 result.terminate == true
+       hasMoreToolCalls = false              # 不因这批续 LLM；还不发 agent_end
+
+  emit turn_end
+  prepareNextTurn()
+
+  3. shouldStopAfterTurn() == true
+       emit agent_end → return               # 跳过两队列
+
+  pending = getSteeringMessages()            # 有 → 内层再转
+  followUp = getFollowUpMessages()           # 有 → 外层再转
+
+  4. 无 tool 且两队列空
+       emit agent_end                        # 大纲那条「模型决定停」
+```
+
+```mermaid
+%%{init: {"theme": "dark", "flowchart": {"curve": "linear", "rankSpacing": 28, "nodeSpacing": 24, "padding": 8}, "themeVariables": {"fontSize": "15px", "background": "#000000", "lineColor": "#CBD5E1", "edgeLabelBackground": "#111111"}}}%%
+flowchart TB
+    MSG["streamAssistantResponse"] --> G1{"① error / aborted?"}
+    G1 -->|是| E1["立刻 agent_end"]
+    G1 -->|否| G2{"② 整批 terminate?"}
+    G2 -->|是| CUT["不因这批续 LLM"]
+    G2 -->|否| G3
+    CUT --> G3{"③ stop after turn?"}
+    G3 -->|是| E2["agent_end，跳过队列"]
+    G3 -->|否| G4{"④ tool 与队列都空?"}
+    G4 -->|是| E3["正常 agent_end"]
+    G4 -->|否| LOOP["续跑 LLM"]
+
+    classDef a fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A
+    classDef d fill:#FEF08A,stroke:#FDE047,color:#713F12
+    classDef bad fill:#FBCFE8,stroke:#F9A8D4,color:#831843
+    classDef mid fill:#A5F3FC,stroke:#67E8F9,color:#155E75
+    classDef ok fill:#BBF7D0,stroke:#86EFAC,color:#14532D
+
+    class MSG a
+    class G1,G2,G3,G4 d
+    class E1,E2 bad
+    class CUT,LOOP mid
+    class E3 ok
+```
+
+第 2 道必须**整批** `result.terminate == true`。同批有一个没 terminate，还会续 LLM。`Agent.abort()` 打当前 `AbortController`，正在流的那次变成 `aborted`，走第 1 道。
+
+**兜底（Interactive）** — 不实现上面四道门，只订 `agent_end` 做副作用（落盘、扩展、`willRetry`）。`prompt()` 返回后再问要不要 `continue()`。
+
+```text
+function flow（兜底）
+  _handlePostAgentRun():                     # 再开一轮？
+    if retryable error → prepareRetry → true
+    if overflow compact → true
+    if hasQueuedMessages → true              # agent_end 钩子新入队
+    return false                             # settled
+```
+
+```mermaid
+%%{init: {"theme": "dark", "flowchart": {"curve": "linear", "rankSpacing": 28, "nodeSpacing": 24, "padding": 8}, "themeVariables": {"fontSize": "15px", "background": "#000000", "lineColor": "#CBD5E1", "edgeLabelBackground": "#111111"}}}%%
+flowchart TB
+    POST["_handlePostAgentRun"] --> R{"retryable error?"}
+    R -->|是| C1["continue"]
+    R -->|否| CMP{"overflow compact?"}
+    CMP -->|是| C2["continue"]
+    CMP -->|否| Q{"hasQueuedMessages?"}
+    Q -->|是| C3["continue"]
+    Q -->|否| IDLE["settled"]
+
+    classDef a fill:#E9D5FF,stroke:#D8B4FE,color:#6B21A8
+    classDef d fill:#FEF08A,stroke:#FDE047,color:#713F12
+    classDef c fill:#A5F3FC,stroke:#67E8F9,color:#155E75
+    classDef ok fill:#BBF7D0,stroke:#86EFAC,color:#14532D
+
+    class POST a
+    class R,CMP,Q d
+    class C1,C2,C3 c
+    class IDLE ok
+```
+
+`hasQueuedMessages` **不是**停机第 4 条。第 4 条排空的是这次 loop 里的 steering / follow-up。这里查的是 `agent_end` 钩子之后新塞进来的消息。
 
 ---
 
@@ -593,6 +687,7 @@ flowchart LR
 | 初始化上下文 | `buildSystemPrompt` + `AgentContext`，在 `runLoop` 外 |
 | 变换 = compact | 循环内 `transformContext` + `convertToLlm`；compact 在 `_checkCompaction` |
 | LLM ↔ tool | `runLoop` 内层；外层是 follow-up |
-| 模型决定停 | 还要过 terminate、`shouldStopAfterTurn`、两队列、`_handlePostAgentRun` |
+| 模型决定停 | Core 停机四道门：error/aborted、整批 terminate、`shouldStopAfterTurn`、两队列空 |
+| （大纲没有这一层） | Interactive 兜底：`prompt()` 返回后 `_handlePostAgentRun`，可能 `continue()` |
 
 读：`types.ts` → `agent-loop.ts` → `agent.ts` → `sdk.ts` → `agent-session.ts` → `test/agent-loop.test.ts`。
