@@ -16,7 +16,7 @@
 
 ## 一、总图
 
-图从左到右是 UI | Interactive | Core。事件从右往左：Core 发，Interactive 处理，UI 画。后面各节按这条线展开。
+图从左到右是 UI | Interactive | Core。事件从右往左：Core 发，Interactive 处理，UI 画。`await emit` 等到 Interactive 做完；UI 被 `_emit` 踢出去，不挡循环。后面各节按这条线展开。
 
 ```text
 function flow（三层）
@@ -24,16 +24,17 @@ function flow（三层）
     runLoop await emit(event)
       → Agent.processEvents
           先改 state
-          再 await 已 subscribe 的 listeners
+          再 await 已 subscribe 的 listeners   # 含 _handleAgentEvent
 
   Pi Interactive  处理
     AgentSession._handleAgentEvent
       ① await pi.on 订的扩展
-      ② _emit → session.subscribe 名单  # 不 await
+      ② _emit → session.subscribe 名单  # 不 await，不挡循环
       ③ message_end → append JSONL
+    另发 SessionEvent（不经 runLoop，第四节）
 
   UI  处理
-    handleEvent
+    handleEvent                        # 只订 Session，不订 Core
       改 Component → TUI.requestRender
 ```
 
@@ -44,7 +45,6 @@ flowchart RL
         direction TB
         HEV["handleEvent<br/>订 session.subscribe"]
         DRAW["requestRender"]
-        HEVS["SessionEvent"]
         HEV --> DRAW
     end
 
@@ -54,7 +54,6 @@ flowchart RL
         EXT["① await pi.on"]
         UIEMIT["② _emit 不等待"]
         DISK["③ message_end 落盘"]
-        EXTRA["另发 SessionEvent"]
         HA --> EXT
         EXT --> UIEMIT
         UIEMIT --> DISK
@@ -63,17 +62,14 @@ flowchart RL
     subgraph coreLayer["Pi Core"]
         direction TB
         LOOP["runLoop emit"]
-        PE["processEvents"]
-        ST["改 Agent.state"]
-        LIS["await 已订 listeners"]
-        LOOP --> PE
-        PE --> ST
+        ST["processEvents<br/>先改 state"]
+        LIS["再 await listeners"]
+        LOOP --> ST
         ST --> LIS
     end
 
     LIS --> HA
     UIEMIT --> HEV
-    EXTRA --> HEVS
 
     classDef start fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A,font-size:22px
     classDef step fill:#A5F3FC,stroke:#67E8F9,color:#155E75,font-size:22px
@@ -82,8 +78,8 @@ flowchart RL
     classDef wrap fill:#111111,stroke:#C4B5FD,color:#FDE68A,font-size:22px
 
     class LOOP start
-    class PE,ST,LIS,HA,EXT,UIEMIT step
-    class EXTRA,HEV,HEVS prod
+    class ST,LIS,HA,EXT,UIEMIT step
+    class HEV prod
     class DISK,DRAW ok
     class uiLayer,interactiveLayer,coreLayer wrap
 ```
@@ -113,7 +109,7 @@ Agent 把 emit 接到自己身上:
 
 ## 三、何时发送
 
-只在 Core。`continue()` 没有初始 prompt 那对 `message_start/end`。`turn_start` 之后可以再进下一 turn，不回到 `agent_start`。
+`AgentEvent` 只在 Core 发。Interactive 另发的 `SessionEvent` 见第四节。`continue()` 没有初始 prompt 那对 `message_start/end`。`turn_start` 之后可以再进下一 turn，不回到 `agent_start`。
 
 ```text
 function flow（何时发送 · agent-loop.ts）
@@ -186,7 +182,7 @@ flowchart TB
 
 `agent_end` 钩子里新入队的消息，本轮 loop 已经停了，由 `_handlePostAgentRun` 的 `hasQueuedMessages` 再 `continue()`。那是兜底，不是停机第 4 条。
 
-`agent_settled` 在 `_handlePostAgentRun` 不再 `continue()` 之后，是 Interactive 的结束，不是 Core 的 `agent_end`。发出之后谁改 state、谁 await，见第五节。
+`agent_settled` 在 `_handlePostAgentRun` 不再 `continue()` 之后，是 Interactive 的结束，不是 Core 的 `agent_end`。它不经 `processEvents`，走 `session.subscribe`（第四节）。`Agent.waitForIdle` 等的是 `agent_end` 的 listener（第五节）；`AgentSession.waitForIdle` 等的是这条 `agent_settled`。
 
 ---
 
@@ -209,7 +205,7 @@ TUI 不订 Core，只订 Session。
 | 谁订 | 订到哪 | 调用 |
 |------|--------|------|
 | AgentSession | Core `Agent.listeners` | 构造时 `agent.subscribe(_handleAgentEvent)` |
-| 扩展 | Interactive `handlers` | 加载时 `pi.on("agent_start", ...)` |
+| 扩展 | Interactive `handlers` | 加载时 `pi.on("message_end", ...)` |
 | TUI / RPC / print | Interactive `_eventListeners` | `session.subscribe(handleEvent)` |
 
 | 层 | 文件 | 函数 |
@@ -225,7 +221,7 @@ Interactive 还另发 `SessionEvent`（不经 `runLoop`）：`queue_update` / `a
 
 ## 五、processEvents
 
-先改内部 state，再按订阅顺序 `await` 每个 listener。`waitForIdle` 等的是这些 listener 做完，不是 `agent_end` 刚发出。
+先改内部 state，再按订阅顺序 `await` 每个 listener。`Agent.waitForIdle` 等的是这些 listener 做完，不是 `agent_end` 刚发出。`AgentSession.waitForIdle` 等的是 `agent_settled`，见第三节。
 
 ```text
 function flow（processEvents）
@@ -240,8 +236,9 @@ function flow（processEvents）
     for listener in subscribe() 顺序:
       await listener(event, signal)
 
-  waitForIdle():
+  Agent.waitForIdle():
     return activeRun.promise     # agent_end 的 listener 也算进去
+                                 # 不是 AgentSession.waitForIdle（那条等 agent_settled）
 ```
 
 `AgentSession` 构造时 `agent.subscribe(this._handleAgentEvent)`。处理顺序：扩展 → TUI 监听者 → 落盘。
