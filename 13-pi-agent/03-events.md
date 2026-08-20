@@ -5,29 +5,21 @@
 
 ## 目录
 
-- [一、总图：三层何时发送 / 何时处理](#一总图三层何时发送--何时处理)
-- [二、事件](#二事件)
-- [三、processEvents](#三processevents)
-- [四、落盘](#四落盘)
-- [五、agent_end 三处](#五agent_end-三处)
-- [对照](#对照)
+- [一、总图](#一总图)
+- [二、emit 是什么](#二emit-是什么)
+- [三、何时发送](#三何时发送)
+- [四、谁在听](#四谁在听)
+- [五、processEvents](#五processevents)
+- [六、落盘](#六落盘)
 
 ---
 
-## 一、总图：三层何时发送 / 何时处理
+## 一、总图
 
-事件总线没有名叫 `register` 的 API。订听众是 `subscribe` / `pi.on`，发生在**构造时**，不在 `emit` 路径上。`registerTool` / `registerCommand` 是能力，见 `07-Capability.md`。
+图从左到右是 UI | Interactive | Core。事件从右往左：Core 发，Interactive 处理，UI 画。后面各节按这条线展开。
 
 ```text
 function flow（三层）
-  订（构造时，写入名单）
-    AgentSession 构造:
-      agent.subscribe(_handleAgentEvent)     # 订到 Core
-    扩展加载:
-      pi.on("message_end", handler)          # 订到 Interactive
-    InteractiveMode / RPC / print:
-      session.subscribe(handleEvent)         # 订到 Interactive
-
   Pi Core  发送
     runLoop await emit(event)
       → Agent.processEvents
@@ -41,16 +33,12 @@ function flow（三层）
       ③ message_end → append JSONL
 
   UI  处理
-    handleEvent（session.subscribe 订进去的）
+    handleEvent
       改 Component → TUI.requestRender
 ```
 
-`await emit` 等的是 `processEvents` + `_handleAgentEvent`（含扩展和落盘）。TUI 的 `handleEvent` 被 `_emit` 踢出去，不挡循环。
-
-图从左到右是 UI | Interactive | Core。事件从右往左：Core 发，Interactive 处理，UI 画。
-
 ```mermaid
-%%{init: {"theme": "dark", "flowchart": {"curve": "linear", "rankSpacing": 36, "nodeSpacing": 28, "padding": 12, "useMaxWidth": false}, "themeVariables": {"fontSize": "16px", "background": "#000000", "lineColor": "#CBD5E1", "clusterBkg": "#111111", "clusterBorder": "#C4B5FD", "titleColor": "#FDE68A", "edgeLabelBackground": "#111111"}}}%%
+%%{init: {"theme": "dark", "flowchart": {"curve": "linear", "rankSpacing": 36, "nodeSpacing": 28, "padding": 12, "useMaxWidth": false, "htmlLabels": true}, "themeVariables": {"fontSize": "22px", "background": "#000000", "lineColor": "#CBD5E1", "clusterBkg": "#111111", "clusterBorder": "#C4B5FD", "titleColor": "#FDE68A", "edgeLabelBackground": "#111111"}, "themeCSS": ".nodeLabel,.label,.cluster-label,span{font-size:22px!important}"}}%%
 flowchart RL
     subgraph uiLayer["UI"]
         direction TB
@@ -87,11 +75,11 @@ flowchart RL
     UIEMIT --> HEV
     EXTRA --> HEVS
 
-    classDef start fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A
-    classDef step fill:#A5F3FC,stroke:#67E8F9,color:#155E75
-    classDef prod fill:#E9D5FF,stroke:#D8B4FE,color:#6B21A8
-    classDef ok fill:#BBF7D0,stroke:#86EFAC,color:#14532D
-    classDef wrap fill:#111111,stroke:#C4B5FD,color:#FDE68A
+    classDef start fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A,font-size:22px
+    classDef step fill:#A5F3FC,stroke:#67E8F9,color:#155E75,font-size:22px
+    classDef prod fill:#E9D5FF,stroke:#D8B4FE,color:#6B21A8,font-size:22px
+    classDef ok fill:#BBF7D0,stroke:#86EFAC,color:#14532D,font-size:22px
+    classDef wrap fill:#111111,stroke:#C4B5FD,color:#FDE68A,font-size:22px
 
     class LOOP start
     class PE,ST,LIS,HA,EXT,UIEMIT step
@@ -100,58 +88,35 @@ flowchart RL
     class uiLayer,interactiveLayer,coreLayer wrap
 ```
 
-订写在节点第二行：构造时挂上，不进 `emit` 箭头。
-
-| 谁订 | 订到哪 | 调用 |
-|------|--------|------|
-| AgentSession | Core `Agent.listeners` | 构造时 `agent.subscribe(_handleAgentEvent)` |
-| 扩展 | Interactive `handlers` | 加载时 `pi.on("agent_start", ...)` |
-| TUI / RPC / print | Interactive `_eventListeners` | `session.subscribe(handleEvent)` |
-
-何时发送：只在 Core。`continue()` 没有初始 prompt 那对 `message_start/end`。`turn_start` 之后可以再进下一 turn，不回到 `agent_start`。
-
-```mermaid
-%%{init: {"theme": "dark", "flowchart": {"curve": "linear", "rankSpacing": 28, "nodeSpacing": 24, "padding": 8}, "themeVariables": {"fontSize": "15px", "background": "#000000", "lineColor": "#CBD5E1", "edgeLabelBackground": "#111111"}}}%%
-flowchart LR
-    AS["agent_start"] --> TS["turn_start"]
-    TS --> PR["prompt/steer start+end"]
-    PR --> AM["assistant start → update* → end"]
-    AM --> TX["tool start → update* → end"]
-    TX --> TR["toolResult start+end"]
-    TR --> TE["turn_end"]
-    TE --> AE["agent_end"]
-
-    classDef start fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A
-    classDef step fill:#A5F3FC,stroke:#67E8F9,color:#155E75
-    classDef core fill:#E9D5FF,stroke:#D8B4FE,color:#6B21A8
-    classDef ok fill:#BBF7D0,stroke:#86EFAC,color:#14532D
-
-    class AS start
-    class TS,PR,AM,TX,TR step
-    class TE core
-    class AE ok
-```
-
-`agent_settled` 在 `_handlePostAgentRun` 不再 `continue()` 之后，是 Interactive 的结束，不是 Core 的 `agent_end`。
-
-| 层 | 文件 | 函数 |
-|----|------|------|
-| 订到 Core | `packages/agent/src/agent.ts` | `subscribe` → `listeners.add` |
-| 订到 Session | `packages/coding-agent/src/core/agent-session.ts` | `subscribe` → `_eventListeners` |
-| 订扩展 | `packages/coding-agent/src/core/extensions/types.ts` | `pi.on(...)` |
-| 发送 | `packages/agent/src/agent-loop.ts` | `runLoop` 的 `emit` |
-| 处理 state | `packages/agent/src/agent.ts` | `processEvents` |
-| 产品订阅 | `packages/coding-agent/src/core/agent-session.ts` | `_handleAgentEvent` |
-| UI | `packages/coding-agent/src/modes/interactive/interactive-mode.ts` | `subscribeToAgent` → `handleEvent` |
 
 ---
 
-## 二、事件
+## 二、emit 是什么
 
-循环对外只发 `AgentEvent`。UI、扩展、JSONL 订同一条总线。类型在 `packages/agent/src/types.ts`。
+循环对外只发 `AgentEvent`。`runLoop` 不画 UI、不写盘，只调用传入的回调 `emit`。类型在 `packages/agent/src/types.ts`。
 
 ```text
-function flow（嵌套生命周期）
+AgentEventSink = (event: AgentEvent) => Promise<void>
+
+Agent 把 emit 接到自己身上:
+  runAgentLoop(..., (event) => this.processEvents(event), ...)
+```
+
+`await emit(...)` 等的是 `processEvents` + 已订 listener 做完，不是等模型。TUI 的 `handleEvent` 被 Interactive 的 `_emit` 踢出去，不挡循环。
+
+| 层 | 文件 | 函数 |
+|----|------|------|
+| 发出 | `packages/agent/src/agent-loop.ts` | `runLoop` 的 `emit` |
+| 接到 | `packages/agent/src/agent.ts` | `processEvents` |
+
+---
+
+## 三、何时发送
+
+只在 Core。`continue()` 没有初始 prompt 那对 `message_start/end`。`turn_start` 之后可以再进下一 turn，不回到 `agent_start`。
+
+```text
+function flow（何时发送 · agent-loop.ts）
   agent_start
     turn_start
       message_start / message_end              # 初始 prompt（continue 没有）
@@ -161,46 +126,104 @@ function flow（嵌套生命周期）
       tool_execution_end
       message_start / message_end              # 每条 toolResult
     turn_end
-  agent_end
+  agent_end                                    # 不是只有 turn_end 后一条
+    ① error / aborted                    → emit → 立刻 return
+    ② 整批 terminate                      → 不发
+    ③ shouldStopAfterTurn                 → emit → return，跳过两队列
+    ④ 无 tool、steering/follow-up 都空    → emit → 正常退出
 ```
 
 `message_update` 只给正在流的 assistant。UI 边生成边画，靠这条，不是循环回头问人。
 
-`runLoop` 里 `await emit(...)` 等的是 listener 做完，不是等模型。
-
 ```mermaid
-%%{init: {"theme": "dark", "flowchart": {"curve": "linear", "rankSpacing": 28, "nodeSpacing": 24, "padding": 8}, "themeVariables": {"fontSize": "15px", "background": "#000000", "lineColor": "#CBD5E1", "edgeLabelBackground": "#111111"}}}%%
+%%{init: {"theme": "dark", "flowchart": {"curve": "linear", "rankSpacing": 32, "nodeSpacing": 28, "padding": 12, "useMaxWidth": false, "htmlLabels": true}, "themeVariables": {"fontSize": "22px", "background": "#000000", "lineColor": "#CBD5E1", "edgeLabelBackground": "#111111"}, "themeCSS": ".nodeLabel,.label,span{font-size:22px!important}"}}%%
 flowchart LR
-    LOOP["runLoop emit"] --> PE["Agent.processEvents"]
-    PE --> L["subscribe listeners"]
-    L --> SES["_handleAgentEvent"]
-    SES --> EXT["extensions"]
-    SES --> TUI["TUI"]
-    SES --> JSONL["appendMessage"]
+    AS["agent_start"] --> TS["turn_start"]
+    TS --> PR["prompt/steer start+end"]
+    PR --> AM["assistant start → update* → end"]
+    AM --> TX["tool start → update* → end"]
+    TX --> TR["toolResult start+end"]
+    TR --> TE["turn_end"]
+    TE --> AE["agent_end"]
 
-    classDef a fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A
-    classDef b fill:#A5F3FC,stroke:#67E8F9,color:#155E75
-    classDef c fill:#E9D5FF,stroke:#D8B4FE,color:#6B21A8
-    classDef d fill:#FBCFE8,stroke:#F9A8D4,color:#831843
-    classDef e fill:#BBF7D0,stroke:#86EFAC,color:#14532D
+    classDef start fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A,font-size:22px
+    classDef step fill:#A5F3FC,stroke:#67E8F9,color:#155E75,font-size:22px
+    classDef prod fill:#E9D5FF,stroke:#D8B4FE,color:#6B21A8,font-size:22px
+    classDef ok fill:#BBF7D0,stroke:#86EFAC,color:#14532D,font-size:22px
 
-    class LOOP a
-    class PE,L b
-    class SES c
-    class EXT,TUI d
-    class JSONL e
+    class AS start
+    class TS,PR,AM,TX,TR step
+    class TE prod
+    class AE ok
 ```
 
-| 层 | 文件 | 函数 |
-|----|------|------|
-| 发出 | `packages/agent/src/agent-loop.ts` | `runLoop` 的 `emit` |
-| 分发 | `packages/agent/src/agent.ts` | `processEvents` / `subscribe` |
-| 产品订阅 | `packages/coding-agent/src/core/agent-session.ts` | `_handleAgentEvent` |
-| 扩展 | 同上 | `_emitExtensionEvent` |
+上图是嵌套顺序。`agent_end` 不是只有 `turn_end` 后面那一条：同一文件三处，对应停机第 1、3、4 道门。第 2 道 terminate **不发**，只挡住「因这批 tool 再调 LLM」，循环可能还去 poll 队列，最后仍可能走第 4 道才发。停机四道门见 `02-agent-loop.md`。
+
+`agent_end` 是这次 `runLoop` 的结束通知，不是在问要不要停。payload 的 `messages` 是这次 run **新产生**的消息，不含进循环前已有的 transcript。后面 Interactive 若 `continue()`，那是新的一次 `runLoop`，会再发 `agent_start`。
+
+```mermaid
+%%{init: {"theme": "dark", "flowchart": {"curve": "linear", "rankSpacing": 28, "nodeSpacing": 20, "padding": 8, "useMaxWidth": false, "htmlLabels": true}, "themeVariables": {"fontSize": "22px", "background": "#000000", "lineColor": "#CBD5E1", "edgeLabelBackground": "#111111"}, "themeCSS": ".nodeLabel,.label,span{font-size:22px!important}"}}%%
+flowchart TB
+    G1{"① 出错?"} -->|是| E1["立刻发"]
+    G1 -->|否| G2{"② 整批终止?"}
+    G2 -->|是| NO["不发"]
+    G2 -->|否| G3{"③ 停本 turn?"}
+    G3 -->|是| E2["跳过队列发"]
+    G3 -->|否| G4{"④ 队列空?"}
+    G4 -->|是| E3["正常发"]
+    G4 -->|否| MORE["续跑"]
+
+    classDef dec fill:#FEF08A,stroke:#FDE047,color:#713F12,font-size:22px
+    classDef ok fill:#BBF7D0,stroke:#86EFAC,color:#14532D,font-size:22px
+    classDef mid fill:#A5F3FC,stroke:#67E8F9,color:#155E75,font-size:22px
+    classDef skip fill:#E9D5FF,stroke:#D8B4FE,color:#6B21A8,font-size:22px
+
+    class G1,G2,G3,G4 dec
+    class E1,E2,E3 ok
+    class MORE mid
+    class NO skip
+```
+
+`agent_end` 钩子里新入队的消息，本轮 loop 已经停了，由 `_handlePostAgentRun` 的 `hasQueuedMessages` 再 `continue()`。那是兜底，不是停机第 4 条。
+
+`agent_settled` 在 `_handlePostAgentRun` 不再 `continue()` 之后，是 Interactive 的结束，不是 Core 的 `agent_end`。发出之后谁改 state、谁 await，见第五节。
 
 ---
 
-## 三、processEvents
+## 四、谁在听
+
+订听众是 `subscribe` / `pi.on`，发生在**构造时**，不在 `emit` 路径上。
+
+```text
+function flow（订）
+  AgentSession 构造:
+    agent.subscribe(_handleAgentEvent)     # 订到 Core
+  扩展加载:
+    pi.on("message_end", handler)          # 订到 Interactive
+  InteractiveMode / RPC / print:
+    session.subscribe(handleEvent)         # 订到 Interactive
+```
+
+TUI 不订 Core，只订 Session。
+
+| 谁订 | 订到哪 | 调用 |
+|------|--------|------|
+| AgentSession | Core `Agent.listeners` | 构造时 `agent.subscribe(_handleAgentEvent)` |
+| 扩展 | Interactive `handlers` | 加载时 `pi.on("agent_start", ...)` |
+| TUI / RPC / print | Interactive `_eventListeners` | `session.subscribe(handleEvent)` |
+
+| 层 | 文件 | 函数 |
+|----|------|------|
+| 订到 Core | `packages/agent/src/agent.ts` | `subscribe` → `listeners.add` |
+| 订到 Session | `packages/coding-agent/src/core/agent-session.ts` | `subscribe` → `_eventListeners` |
+| 订扩展 | `packages/coding-agent/src/core/extensions/types.ts` | `pi.on(...)` |
+| UI | `packages/coding-agent/src/modes/interactive/interactive-mode.ts` | `subscribeToAgent` → `handleEvent` |
+
+Interactive 还另发 `SessionEvent`（不经 `runLoop`）：`queue_update` / `agent_settled` / `compaction_*` / `auto_retry_*`，同样走 `session.subscribe`。
+
+---
+
+## 五、processEvents
 
 先改内部 state，再按订阅顺序 `await` 每个 listener。`waitForIdle` 等的是这些 listener 做完，不是 `agent_end` 刚发出。
 
@@ -225,9 +248,15 @@ function flow（processEvents）
 
 扩展在 `message_end` 可以替换消息（`emitMessageEnd`）。替换发生在 `appendMessage` 之前，所以盘上的是改过的版本。
 
+| 层 | 文件 | 函数 |
+|----|------|------|
+| 处理 state | `packages/agent/src/agent.ts` | `processEvents` |
+| 产品订阅 | `packages/coding-agent/src/core/agent-session.ts` | `_handleAgentEvent` |
+| 扩展 | 同上 | `_emitExtensionEvent` |
+
 ---
 
-## 四、落盘
+## 六、落盘
 
 落盘 = 把已经定稿的消息追加到 session JSONL。触发点是 `message_end`，不是整轮 `agent_end`。崩溃或关掉 TUI 后能接着聊：消息已经按事件写盘。
 
@@ -246,22 +275,22 @@ function flow（落盘）
 ```
 
 ```mermaid
-%%{init: {"theme": "dark", "flowchart": {"curve": "linear", "rankSpacing": 28, "nodeSpacing": 24, "padding": 8}, "themeVariables": {"fontSize": "15px", "background": "#000000", "lineColor": "#CBD5E1", "edgeLabelBackground": "#111111"}}}%%
+%%{init: {"theme": "dark", "flowchart": {"curve": "linear", "rankSpacing": 32, "nodeSpacing": 24, "padding": 12, "useMaxWidth": false, "htmlLabels": true}, "themeVariables": {"fontSize": "22px", "background": "#000000", "lineColor": "#CBD5E1", "edgeLabelBackground": "#111111"}, "themeCSS": ".nodeLabel,.label,span{font-size:22px!important}"}}%%
 flowchart TB
     E["message_end"] --> R{"role?"}
     R -->|user / assistant / toolResult| M["appendMessage"]
     R -->|custom| C["appendCustomMessageEntry"]
     R -->|其它| SKIP["别处写或不写"]
 
-    classDef a fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A
-    classDef d fill:#FEF08A,stroke:#FDE047,color:#713F12
-    classDef ok fill:#BBF7D0,stroke:#86EFAC,color:#14532D
-    classDef skip fill:#E9D5FF,stroke:#D8B4FE,color:#6B21A8
+    classDef start fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A,font-size:22px
+    classDef dec fill:#FEF08A,stroke:#FDE047,color:#713F12,font-size:22px
+    classDef ok fill:#BBF7D0,stroke:#86EFAC,color:#14532D,font-size:22px
+    classDef prod fill:#E9D5FF,stroke:#D8B4FE,color:#6B21A8,font-size:22px
 
-    class E a
-    class R d
+    class E start
+    class R dec
     class M,C ok
-    class SKIP skip
+    class SKIP prod
 ```
 
 `message_update` 不落盘。流式过程只改 `streamingMessage`；定稿才追加一行。文件只 append，不改已有行。路径与树结构见 `04-sessions.md`。
@@ -272,23 +301,3 @@ flowchart TB
 | 写哪一行 | `packages/coding-agent/src/core/session-manager.ts` | `appendMessage` / `_appendEntry` |
 
 ---
-
-## 五、agent_end 三处
-
-`agent_end` 是这次 `runLoop` 的**结束通知**，不是在问要不要停。payload 的 `messages` 是这次 run **新产生**的消息，不含进循环前已有的 transcript。后面 Interactive 若 `continue()`，那是新的一次 `runLoop`，会再发 `agent_start`。
-
-同一文件三处，对应停机第 1、3、4 道门（第 2 道 terminate 不发 `agent_end`）：
-
-
-```text
-function flow（agent_end）
-  emit({ type: "agent_end", messages: newMessages })
-  EventStream 以 agent_end 为结束标记
-  processEvents → 清 streamingMessage → await listeners
-  AgentSession 给扩展 / TUI 时附带 willRetry
-```
-
-`agent_end` 钩子里新入队的消息，本轮 loop 已经停了，由 `_handlePostAgentRun` 的 `hasQueuedMessages` 再 `continue()`。那是兜底，不是停机第 4 条。
-
----
-
