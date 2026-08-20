@@ -5,107 +5,178 @@
 
 ## 目录
 
-- [一、不是事件](#一不是事件)
-- [二、三条路](#二三条路)
-- [三、工具前拦截](#三工具前拦截)
-- [对照](#对照)
+- [一、总图](#一总图)
+- [二、怎么插话](#二怎么插话)
+- [三、何时进循环](#三何时进循环)
+- [四、怎么拦工具](#四怎么拦工具)
+
+人插手循环有两种办法：插一句话，或挡住一次工具。订事件只会看到发生了什么，插不进去。循环怎么跑见 [`02-agent-loop.md`](02-agent-loop.md)，事件总线见 [`03-events.md`](03-events.md)。
+
+Core **没有**权限弹窗。开箱只有队列纠偏，加上可选的工具前拦截。弹窗要自己写扩展。
+
+`prompt` 的 await 只占住这一轮 loop。正在跑时再打字，第二次 `session.prompt` 不进 `Agent.prompt`，只往队列里塞；loop 自己 drain。能卡住等人的只有扩展里 `await ui.select`。
 
 ---
 
-## 一、不是事件
+## 一、总图
 
-人插手是 **人 → 循环**：插入消息，或挡住工具。事件总线是 **循环 → 外界**：UI 刷新、落盘。订 `AgentEvent` 不会变成 HITL。
+左 UI，中 Interactive，右 Core。人往右塞；拦工具时 Core 往左卡住等人。
 
-Pi Core **不内置**权限弹窗。开箱的 HITL 只有队列纠偏，加上可选的 `beforeToolCall`。弹窗要自己写 extension。
+```text
+function flow（HITL 三层）
 
-循环怎么跑、队列何时 drain，见 `02-agent-loop.md` 第三节。事件总线见 `03-events.md`。
-
-| | HITL | 事件 / 落盘 |
-|--|------|-------------|
-| 方向 | 人 → 循环 | 循环 → 外界 |
-| 挡住 LLM / tool？ | 可以 | 否 |
-| Core 开箱 | `steer` / `followUp` / `beforeToolCall` | 必有 |
+┌────────── UI ──────────┐  ┌──────── Interactive ────────┐  ┌──────── Pi Core ────────┐
+│                        │  │                             │  │                         │
+│  空闲回车               │  │                             │  │                         │
+│  Editor.submitValue    │  │  defaultEditor.onSubmit     │  │                         │
+│    onSubmit ───────────┼─>│    session.prompt           │  │                         │
+│                        │  │      / 命令到此结束          │  │                         │
+│                        │  │      emitInput / expand     │  │                         │
+│                        │  │      _runAgentPrompt ───────┼─>│  Agent.prompt           │
+│                        │  │                             │  │    runLoop              │
+│                        │  │                             │  │    # await 占住这一轮    │
+│                        │  │                             │  │                         │
+│  正在跑再回车           │  │                             │  │                         │
+│  Editor.submitValue    │  │  session.prompt({steer})    │  │                         │
+│    onSubmit ───────────┼─>│    _queueSteer ─────────────┼─>│  Agent.steer            │
+│                        │  │                             │  │    enqueue  # 立刻返回  │
+│  onAction(followUp) ───┼─>│  handleFollowUp             │  │                         │
+│                        │  │    _queueFollowUp ──────────┼─>│  Agent.followUp         │
+│                        │  │                             │  │                         │
+│                        │  │                             │  │  turn_end drain steer   │
+│                        │  │                             │  │  闲时 drain followUp    │
+│                        │  │                             │  │                         │
+│  拦工具                 │  │                             │  │  prepareToolCall        │
+│                        │  │  emitToolCall <─────────────┼──│    beforeToolCall       │
+│                        │  │    permission-gate          │  │                         │
+│  showExtensionSelector │<─┼──  ctx.ui.select            │  │                         │
+│    人选 Yes/No         │  │                             │  │                         │
+│                        │  │  {block} | undefined ───────┼─>│  block → error          │
+│                        │  │                             │  │  否 → execute           │
+└────────────────────────┘  └─────────────────────────────┘  └─────────────────────────┘
+```
 
 ---
 
-## 二、三条路
+## 二、怎么插话
+
+空闲时你回车，就是开新一轮。模型正在跑时再打字，这句话进队列，等循环自己来取：
+
+- **纠偏（steer）**：这批工具跑完就插进去，让模型改方向。
+- **下一句（followUp）**：等没有工具在跑了再问，不打断手头的活。
+
+TUI 把回车写死成纠偏，Alt+Enter 是下一句。RPC 客户端自己带参数，或直接调 `steer` / `followUp`。队列何时取出、当前这批工具不跳过，见 [`02-agent-loop.md`](02-agent-loop.md) 第三节。
 
 ```text
 function flow（人怎么进循环）
-  1. 跑着时再打字
-       Enter     → steer()      # 这批 tool 跑完就改方向
-       Alt+Enter → followUp()   # 做完再加一句
-  2. 工具执行前
-       beforeToolCall → { block: true }   # 这调用不执行
-  3. 产品层弹窗（extension，不在 Core）
-       ui.confirm / permission-gate
-       同意或拒绝之后，再决定 block
+  InteractiveMode.editor.onSubmit(text)
+    session.prompt(text)
+      _tryExecuteExtensionCommand                 # / 命中扩展命令 → return，不进 Core
+      emitInput → handled | transform
+      expanded = _expandSkillCommand
+               → expandPromptTemplate
+      _runAgentPrompt(messages)
+        Agent.prompt → runLoop
+
+  isStreaming:
+    Enter     → session.prompt(text, { streamingBehavior: "steer" })
+                  _queueSteer → Agent.steer → steeringQueue.enqueue
+    Alt+Enter → session.prompt(text, { streamingBehavior: "followUp" })
+                  _queueFollowUp → Agent.followUp → followUpQueue.enqueue
+    未带 streamingBehavior → throw
+
+  这批 tool 跑完 → getSteeringMessages() = steeringQueue.drain()
+  无 tool 且无 steer → getFollowUpMessages() = followUpQueue.drain()
 ```
 
 ```mermaid
-%%{init: {"theme": "dark", "flowchart": {"curve": "linear", "rankSpacing": 28, "nodeSpacing": 24, "padding": 8}, "themeVariables": {"fontSize": "15px", "background": "#000000", "lineColor": "#CBD5E1", "edgeLabelBackground": "#111111"}}}%%
+%%{init: {"theme": "dark", "flowchart": {"curve": "linear", "rankSpacing": 28, "nodeSpacing": 24, "padding": 12, "useMaxWidth": false, "htmlLabels": true}, "themeVariables": {"fontSize": "22px", "background": "#000000", "lineColor": "#CBD5E1", "edgeLabelBackground": "#111111"}, "themeCSS": ".nodeLabel,.label,span{font-size:22px!important}"}}%%
 flowchart TB
-    U["人插手"] --> W{"Agent 正在跑?"}
-    W -->|是| K{"键 / API?"}
-    K -->|Enter / steer| S["steer 队列"]
-    K -->|Alt+Enter / followUp| F["followUp 队列"]
-    W -->|否| P["新开 Agent.prompt"]
-    U --> T["beforeToolCall"]
-    T --> B{"block?"}
-    B -->|是| E["error toolResult"]
-    B -->|否| X["执行工具"]
+    IN["你打了一句"] --> BUSY{"模型正在跑?"}
+    BUSY -->|否| P["马上开新一轮"]
+    BUSY -->|是| KEY{"怎么送?"}
+    KEY -->|纠偏| S["这批工具完就插进去"]
+    KEY -->|下一句| F["等闲下来再问"]
 
-    classDef a fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A
-    classDef d fill:#FEF08A,stroke:#FDE047,color:#713F12
-    classDef s fill:#FBCFE8,stroke:#F9A8D4,color:#831843
-    classDef f fill:#E9D5FF,stroke:#D8B4FE,color:#6B21A8
-    classDef ok fill:#BBF7D0,stroke:#86EFAC,color:#14532D
-    classDef bad fill:#A5F3FC,stroke:#67E8F9,color:#155E75
+    classDef start fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A,font-size:22px
+    classDef dec fill:#FEF08A,stroke:#FDE047,color:#713F12,font-size:22px
+    classDef ok fill:#BBF7D0,stroke:#86EFAC,color:#14532D,font-size:22px
+    classDef bad fill:#FBCFE8,stroke:#F9A8D4,color:#831843,font-size:22px
+    classDef prod fill:#E9D5FF,stroke:#D8B4FE,color:#6B21A8,font-size:22px
 
-    class U a
-    class W,K,B d
-    class S s
-    class F f
-    class P,X ok
-    class T,E bad
+    class IN start
+    class BUSY,KEY dec
+    class P ok
+    class S bad
+    class F prod
 ```
 
-`streamingBehavior` 由调用方定，不是 `runLoop`。TUI 把回车写死成 `"steer"`。RPC 客户端自己带，或直接调 `steer` / `follow_up`。正在跑且没带会抛错。
-
-队列细节（何时 drain、当前工具不跳过）在 `02-agent-loop.md`，这里不重复。
+走哪条由调用方决定，不是循环自己猜。空闲时带 `streamingBehavior` 没用，一律新开一轮。正在跑却没带参数会报错。
 
 ---
 
-## 三、工具前拦截
+## 三、何时进循环
 
-`beforeToolCall` 在预检之后、`tool.execute` 之前。返回 `{ block: true }` 则发一条 error toolResult，这调用不跑。`reason` 给模型看。`terminate: true` 只是提示；必须这批每个 result 都 terminate，循环才因这批停。
+斜杠命中扩展命令，当场执行，**不进**模型循环。其余句子才到上一节那张图。
+
+人插手是 **人 → 循环**。事件是 **循环 → 外界**（刷新界面、写文件）。订 `AgentEvent` 不会变成插话。
+
+| | 插话 / 拦工具 | 事件 / 落盘 |
+|--|----------------|-------------|
+| 方向 | 人 → 循环 | 循环 → 外界 |
+| 挡住模型 / 工具？ | 可以 | 否 |
+| Core 开箱 | 纠偏、下一句、工具前拦截 | 必有 |
+
+`pi -ne` 跳过扩展，权限弹窗没了。队列纠偏还在。
+
+---
+
+## 四、怎么拦工具
+
+工具真正执行前，可以拦一把。预检通过之后、动手之前：返回挡住，这次调用不跑，模型会收到一条失败结果和原因。
+
+挡住不等于整轮结束。只有这批工具的每个结果都同意停，循环才因这批停。
 
 ```text
 function flow（beforeToolCall）
-  prepareToolCall:
-    find tool → prepareArguments → validate
-    beforeToolCall(ctx, signal)
-      { block: true } → error result（可带 terminate）
-      否则 → execute
-
-  Interactive:
-    扩展 on("tool_call") 接到这里
-    可 ui.confirm 再决定 block
+  executeToolCalls:
+    prepareToolCall(toolCall):
+      tool = context.tools.find(name)
+      if not tool: return error result
+      prepared = prepareToolCallArguments(tool)
+      args = validateToolArguments(tool, prepared)
+      beforeResult = config.beforeToolCall(...)
+        AgentSession.agent.beforeToolCall:
+          if not runner.hasHandlers("tool_call"): return undefined
+          return runner.emitToolCall({ toolName, input })
+            # permission-gate: ui.select Yes/No → { block } | undefined
+      if beforeResult.block:
+        return error toolResult(reason)           # 可带 terminate
+      return prepared → executePreparedToolCall
 ```
 
-扩展 `on("tool_call")` 对应 loop 的 `beforeToolCall`；`on("tool_result")` 对应 `afterToolCall`。官方例子：`packages/coding-agent/examples/extensions/permission-gate.ts`。
+```mermaid
+%%{init: {"theme": "dark", "flowchart": {"curve": "linear", "rankSpacing": 28, "nodeSpacing": 24, "padding": 12, "useMaxWidth": false, "htmlLabels": true}, "themeVariables": {"fontSize": "22px", "background": "#000000", "lineColor": "#CBD5E1", "edgeLabelBackground": "#111111"}, "themeCSS": ".nodeLabel,.label,span{font-size:22px!important}"}}%%
+flowchart TB
+    PRE["预检参数"] --> MISS{"有这个工具?"}
+    MISS -->|否| E1["失败结果"]
+    MISS -->|是| HOOK{"有人拦截?"}
+    HOOK -->|无| X1["执行"]
+    HOOK -->|有| B{"挡住?"}
+    B -->|是| E2["失败结果"]
+    B -->|否| X2["执行"]
 
-`pi -ne` 跳过扩展，弹窗这条路就没了。队列 `steer` / `followUp` 仍在。
+    classDef start fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A,font-size:22px
+    classDef dec fill:#FEF08A,stroke:#FDE047,color:#713F12,font-size:22px
+    classDef bad fill:#FBCFE8,stroke:#F9A8D4,color:#831843,font-size:22px
+    classDef ok fill:#BBF7D0,stroke:#86EFAC,color:#14532D,font-size:22px
 
----
+    class PRE start
+    class MISS,HOOK,B dec
+    class E1,E2 bad
+    class X1,X2 ok
+```
 
-## 对照
+扩展 `on("tool_call")` 就是这道拦截；`on("tool_result")` 是跑完之后。官方例子：`packages/coding-agent/examples/extensions/permission-gate.ts`。
 
-| 容易混 | 实际 |
-|--------|------|
-| 订事件 = HITL | 事件是观察；HITL 是队列和 `block` |
-| Core 有权限弹窗 | 没有；要 extension `ui.confirm` |
-| `block` 立刻 `agent_end` | 只失败这一调用；`terminate` 还要整批同意 |
-| 空闲时的 `streamingBehavior` | 无用；空闲一律新开 `prompt` |
-
-读：`02-agent-loop.md` 队列 → `types.ts` `BeforeToolCallResult` → `agent-loop.ts` `prepareToolCall` → `extensions/types.ts` `ui.confirm` → `examples/extensions/permission-gate.ts`。
+读源码：[`02-agent-loop.md`](02-agent-loop.md) 队列 → `types.ts` `BeforeToolCallResult` → `agent-loop.ts` `prepareToolCall` → `extensions/types.ts` `ui.confirm` → `examples/extensions/permission-gate.ts`。
