@@ -7,7 +7,6 @@
 
 - [一、总图](#一总图)
 - [二、工具怎么进循环](#二工具怎么进循环)
-- [三、开哪些工具](#三开哪些工具)
 - [四、扩展怎么接上](#四扩展怎么接上)
 
 循环只认眼前这份工具表。默认四个，没有联网搜索，没有 MCP。要加能力：改开哪些工具、写 skill、装扩展、装 package。扩展改行为，不改循环本身。循环怎么跑工具见 [`02-agent-loop.md`](02-agent-loop.md) 第三节。
@@ -20,29 +19,57 @@
 
 左 UI，中 Interactive，右 Core。名单在 Interactive 凑好再交给 Core；循环只复印眼前这份表。斜杠命令停在 Interactive，不进 Core。
 
+路径默认 `packages/coding-agent/src/`。Core 在 `packages/agent/src/`。Interactive 用**名字名单**选工具，不调用 `createCodingTools`（那是 SDK 助手）。
+
 ```text
-function flow（Capability 三层）
+function flow（Capability 三层 · 文件 → 函数）
 
 ┌────────── UI ──────────┐  ┌──────── Interactive ────────┐  ┌──────── Pi Core ────────┐
 │                        │  │                             │  │                         │
-│  启动选工具             │  │                             │  │                         │
-│  --tools / settings    │─>│  createAgentSession         │  │                         │
-│  --no-tools / -ne      │  │    createCodingTools        │  │                         │
-│                        │  │    或 createReadOnlyTools   │  │                         │
-│                        │  │    _refreshToolRegistry     │  │                         │
-│                        │  │      builtin+ext+custom ────┼─>│  Agent.state.tools      │
+│  启动选工具             │  │  cli.ts → main.ts           │  │                         │
+│  --tools / settings    │─>│    parseArgs                 │  │                         │
+│  --no-tools / -ne      │  │    createAgentSessionServices│  │                         │
+│                        │  │    createAgentSession        │  │  new Agent              │
+│                        │  │      _buildRuntime           │  │                         │
+│                        │  │      _refreshToolRegistry ───┼─>│  Agent.state.tools      │
 │                        │  │                             │  │                         │
-│  装扩展                 │  │                             │  │                         │
-│  --extension / 目录    │─>│  discoverAndLoadExtensions  │  │                         │
-│                        │  │    registerTool ────────────┼─>│  写进工具表              │
-│                        │  │    registerCommand          │  │  Core 看不见命令         │
-│  Editor /plan          │─>│    就地执行，不进循环        │  │                         │
-│                        │  │    on(tool_call) 绑钩子 ────┼─>│  beforeToolCall         │
+│  装扩展                 │  │  resource-loader.ts          │  │                         │
+│  目录 / pi install / -e│─>│    reload → loadExtensions   │  │                         │
+│                        │  │  loader.ts factory(pi)       │  │                         │
+│                        │  │    registerTool ─────────────┼─>│  写进工具表              │
+│                        │  │    registerCommand           │  │  Core 看不见命令         │
+│  Editor /plan          │─>│  agent-session.ts prompt     │  │                         │
+│                        │  │    _tryExecuteExtensionCmd   │  │                         │
+│                        │  │  _installAgentToolHooks ─────┼─>│  beforeToolCall         │
 │                        │  │                             │  │                         │
-│                        │  │  每轮 prepareNextTurn       │  │  runLoop                │
-│                        │  │    tools = state.tools ─────┼─>│    context.tools=slice  │
+│                        │  │  _installAgentNextTurnRefresh│  │  agent-loop.ts runLoop  │
+│                        │  │    prepareNextTurnWithContext┼─>│    context.tools=slice  │
 │                        │  │                             │  │    executeToolCalls     │
 └────────────────────────┘  └─────────────────────────────┘  └─────────────────────────┘
+
+启动整条链:
+  cli.ts:main
+    → cli/args.ts:parseArgs                         # --tools / --no-tools / -e / -ne
+    → main.ts:main
+      buildSessionOptions                           # 把 CLI 工具旗标写进 session options
+      createAgentSessionServices                    # agent-session-services.ts
+        DefaultResourceLoader.reload                # resource-loader.ts；factory 在这里跑
+      createAgentSessionFromServices                # → sdk.ts:createAgentSession
+        算 initialActiveToolNames                   # --tools ?? settings.defaultTools ?? 开箱 4 个
+        new Agent                                   # packages/agent/src/agent.ts
+        new AgentSession                            # agent-session.ts 构造里 _buildRuntime
+      createAgentSessionRuntime                     # agent-session-runtime.ts
+      InteractiveMode.run                           # modes/interactive/interactive-mode.ts
+        bindCurrentSessionExtensions
+          AgentSession.bindExtensions               # emit session_start
+
+每轮:
+  packages/agent/src/agent-loop.ts:runLoop
+    AgentSession._installAgentNextTurnRefresh
+      prepareNextTurnWithContext
+        context.tools = agent.state.tools.slice()
+    executeToolCalls
+      Agent.beforeToolCall → runner.emitToolCall    # agent-session.ts _installAgentToolHooks
 ```
 
 ---
@@ -54,21 +81,33 @@ function flow（Capability 三层）
 `--tools` 是名字白名单：内置和扩展都要写进去才启用。没写 `--tools` 时：开箱四个，加上全部扩展工具。
 
 ```text
-function flow（谁提供工具）
-  createAgentSession:
-    defaultActive = ["read","bash","edit","write"]   # createCodingTools
+function flow（谁提供工具 · 文件 → 函数）
+  cli/args.ts:parseArgs
+    --tools / -t → parsed.tools
+    --no-tools → parsed.noTools
+    --no-builtin-tools → parsed.noBuiltinTools
+    --exclude-tools → parsed.excludeTools
+  main.ts:buildSessionOptions
+    noTools="all" | "builtin"；tools / excludeTools 原样传下去
+
+  sdk.ts:createAgentSession
+    defaultActive = ["read","bash","edit","write"]   # 名字，不是 createCodingTools()
     initialActive = options.tools                    # --tools 白名单
-                  ?? settings.defaultTools
+                  ?? settings.defaultTools           # settings-manager.ts:getDefaultTools
                   ?? defaultActive
     filter excludeTools
-    AgentSession._buildRuntime(activeToolNames=initialActive)
-      _refreshToolRegistry:
-        builtin = _baseToolDefinitions               # 开箱 4 个；只读走 createReadOnlyTools
-        ext     = runner.getAllRegisteredTools()     # ExtensionAPI.registerTool
-        custom  = options.customTools
-        setActiveToolsByName(nextActive)
+    new AgentSession → 构造里 _buildRuntime          # agent-session.ts
+      详见第四节 function flow（_buildRuntime）
 
-  runLoop 每轮:
+  agent-session.ts:_refreshToolRegistry
+    builtin = _baseToolDefinitions                   # tools/index.ts:createAllToolDefinitions（7 个都有定义）
+    ext     = runner.getAllRegisteredTools()         # extensions/runner.ts；factory 里 registerTool 留下的
+    custom  = options.customTools
+    wrapRegisteredTools                              # extensions/wrapper.ts
+    setActiveToolsByName → agent.state.tools         # 默认启用 4 个；无 --tools 时扩展全开
+
+  agent-session.ts:_installAgentNextTurnRefresh
+  packages/agent/src/agent-loop.ts:runLoop 每轮:
     prepareNextTurnWithContext:
       context.tools = agent.state.tools.slice()
       context.systemPrompt = _systemPromptOverride ?? _baseSystemPrompt
@@ -77,103 +116,154 @@ function flow（谁提供工具）
 ```mermaid
 %%{init: {"theme": "dark", "flowchart": {"curve": "linear", "rankSpacing": 28, "nodeSpacing": 24, "padding": 12, "useMaxWidth": false, "htmlLabels": true}, "themeVariables": {"fontSize": "22px", "background": "#000000", "lineColor": "#CBD5E1", "edgeLabelBackground": "#111111"}, "themeCSS": ".nodeLabel,.label,span{font-size:22px!important}"}}%%
 flowchart TB
-    START["组装 session"] --> RO{"只要只读?"}
-    RO -->|是| R["read grep find ls"]
+    SES["组装 session"] --> RO{"只要只读?"}
+    RO -->|是| RONLY["read grep find ls"]
     RO -->|否| WL{"有白名单?"}
     WL -->|有| W["只启用名单里的"]
-    WL -->|无| D["开箱 4 个 + 全部扩展"]
-    R --> ACT1["交给循环"]
+    WL -->|无| DFL["开箱 4 个加扩展"]
+    RONLY --> ACT1["交给循环"]
     W --> ACT2["交给循环"]
-    D --> ACT3["交给循环"]
+    DFL --> ACT3["交给循环"]
 
     classDef start fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A,font-size:22px
     classDef dec fill:#FEF08A,stroke:#FDE047,color:#713F12,font-size:22px
-    classDef bad fill:#FBCFE8,stroke:#F9A8D4,color:#831843,font-size:22px
     classDef prod fill:#E9D5FF,stroke:#D8B4FE,color:#6B21A8,font-size:22px
     classDef ok fill:#BBF7D0,stroke:#86EFAC,color:#14532D,font-size:22px
 
-    class START start
+    class SES start
     class RO,WL dec
-    class W,D prod
-    class R ok
+    class W,DFL prod
+    class RONLY ok
     class ACT1,ACT2,ACT3 ok
 ```
 
-| 层 | 文件 | 看什么 |
-|----|------|--------|
-| 内置工具 | `packages/coding-agent/src/core/tools/index.ts` | `ToolName`、`createCodingTools`、`createReadOnlyTools` |
-| Core 实现 | `packages/agent/src/harness/tools/` | read / bash / edit / write 的执行 |
-| 扩展契约 | `packages/coding-agent/src/core/extensions/types.ts` | `ExtensionAPI` |
-| 加载 | `packages/coding-agent/src/core/extensions/loader.ts` | jiti 加载 `extensions/*.ts` |
-| 事件 | `packages/coding-agent/src/core/extensions/runner.ts` | 把 API 接到当前 session |
+| 层 | 文件 | 函数 |
+|----|------|------|
+| CLI 旗标 | `packages/coding-agent/src/cli/args.ts` | `parseArgs` |
+| 旗标 → session | `packages/coding-agent/src/main.ts` | `buildSessionOptions` / `main` |
+| 先加载再组 session | `packages/coding-agent/src/core/agent-session-services.ts` | `createAgentSessionServices` / `createAgentSessionFromServices` |
+| 算名单 + new Agent | `packages/coding-agent/src/core/sdk.ts` | `createAgentSession` |
+| 内置工具定义 | `packages/coding-agent/src/core/tools/index.ts` | `createAllToolDefinitions`（Interactive 真路径）；`createCodingTools` / `createReadOnlyTools` 是 SDK 助手 |
+| Core 执行 | `packages/agent/src/harness/tools/` | `read` / `bash` / `edit` / `write` |
+| 扩展契约 | `packages/coding-agent/src/core/extensions/types.ts` | `ExtensionAPI`：`registerTool` / `registerCommand` / `on` |
+| 凑路径 | `packages/coding-agent/src/core/resource-loader.ts` | `DefaultResourceLoader.reload`；`_buildRuntime` 只 `getExtensions()` |
+| 目录 / package | `packages/coding-agent/src/core/package-manager.ts` | `resolve` / `resolveExtensionSources` |
+| 加载 factory | `packages/coding-agent/src/core/extensions/loader.ts` | `loadExtensionsCached` → `createExtensionAPI`；`discoverAndLoadExtensions` 只给测试 / SDK |
+| 绑到 session | `packages/coding-agent/src/core/agent-session.ts` | `_buildRuntime` → `_bindExtensionCore` → `_refreshToolRegistry` → `setActiveToolsByName` |
+| 包一层钩子 | `packages/coding-agent/src/core/extensions/wrapper.ts` | `wrapRegisteredTools` |
+| 事件 | `packages/coding-agent/src/core/extensions/runner.ts` | `bindCore` / `getAllRegisteredTools` / `emitToolCall` |
+| 每轮复印表 | `packages/agent/src/agent-loop.ts` | `runLoop` → `executeToolCalls` |
 
 ---
-
-## 三、开哪些工具
-
-内置七个名字，开箱只用四个。另外三个默认关：bash 本来也能搜、找、列目录；只读模式才需要它们，因为那时不给 bash。大纲常说「4 + 2」。源码是 4 个可写，加上 `grep` / `find` / `ls` 三个只读。RPC 自动化不想改文件时走 `--tools`。
-
-```text
-function flow（工具集）
-  createCodingTools(cwd)   = [read, bash, edit, write]
-  createReadOnlyTools(cwd) = [read, grep, find, ls]
-  pi --tools read,grep,find,ls → options.tools 白名单
-  settings.defaultTools 改开箱集合
-  --tools 是名字白名单：builtin 和 extension 都要列进去才启用
-  无 --tools 时：开箱 4 个 + 全部 extension tools
-```
-
-| 工具 | 默认 | 作用 |
-|------|------|------|
-| `read` | 开 | 读文件 |
-| `bash` | 开 | 跑命令 |
-| `edit` | 开 | 改文件（patch） |
-| `write` | 开 | 写 / 覆盖文件 |
-| `grep` | 关 | 搜内容；只读模式用 |
-| `find` | 关 | 找文件；只读模式用 |
-| `ls` | 关 | 列目录；只读套装里有 |
-
-一条助手回复可以带多个工具调用。默认并行，预检串行。细节在 loop 文档。
-
-从上到下用最小的一层就够：改 `settings.json`、写 `AGENTS.md`、换 `SYSTEM.md`、做 prompt 模板、写 skill、装扩展、再考虑 package。
 
 ---
 
 ## 四、扩展怎么接上
 
-扩展是你机器上跑的 TS 模块，不要装不信任的源。契约是一个 `ExtensionAPI`，不是六套子系统。先扫项目目录、用户目录和命令行路径，加载后再绑到当前 session。
+扩展是进程里跑的 TS 模块（`export default function (pi: ExtensionAPI)`）。package 是分发盒：可以带 extension、skill、prompt、theme。`pi install` 装的是 package，不会写进 `extensions/` 目录。不要装不信任的源。
 
-用户输入以 `/` 开头且命中扩展命令则 **不进循环**。`tool_call` / `tool_result` 对应循环里工具前 / 工具后拦截（见 [`06-HITL.md`](06-HITL.md)）。压上下文时，扩展可以取消或自己交摘要。
+Interactive 先凑齐文件路径，再 `jiti` 加载，最后绑到当前 session。用户输入以 `/` 开头且命中扩展命令则 **不进循环**。`tool_call` / `tool_result` 对应循环里工具前 / 工具后拦截（见 [`06-HITL.md`](06-HITL.md)）。压上下文时，扩展可以取消或自己交摘要。
+
+| 渠道 | 落盘 | 怎么启用 |
+|------|------|----------|
+| 本地 TS | `.pi/extensions/`、`~/.pi/agent/extensions/` | 自动扫；项目目录要先信任 |
+| package | `~/.pi/agent/npm/` 或 `.pi/npm/` | `pi install` 写入 `settings.packages`，再读包内 `pi.extensions` |
+| CLI 试跑 | 临时目录或本地路径 | `pi -e ./foo.ts`；本次进程有效 |
 
 ```text
-function flow（加载）
-  discoverAndLoadExtensions:
-    discoverExtensionsInDir(cwd/.pi/extensions)
-    discoverExtensionsInDir(~/.pi/agent/extensions)
-    + CLI --extension 路径 / package
-  loadExtensionsCached(paths):
-    jiti 执行 *.ts
-    factory(pi: ExtensionAPI)
+function flow（加载 · 文件 → 函数）
+  agent-session-services.ts:createAgentSessionServices
+    new DefaultResourceLoader
+    await resourceLoader.reload()                # 先加载，再 createAgentSession
+  sdk.ts:createAgentSession
+    若调用方没传 loader：自己 new DefaultResourceLoader + reload
+    new AgentSession(...) → 构造里 _buildRuntime  # agent-session.ts
 
-  ExtensionRunner 绑 AgentSession
-    registerTool → runtime.refreshTools → _refreshToolRegistry
-    registerCommand / registerShortcut / registerFlag
-    on("tool_call")   → beforeToolCall
-    on("tool_result") → afterToolCall
-    registerProvider
-    ui.select / confirm / input / widget / footer
-    session: newSession / fork / navigateTree / switchSession
+  resource-loader.ts:DefaultResourceLoader.reload
+    package-manager.ts:resolve:
+      settings.packages                          # pi install；不进 extensions/ 目录
+        读 package.json pi.extensions
+      cwd/.pi/extensions                         # 项目 drop-in；信任后才加载
+      ~/.pi/agent/extensions                     # 用户 drop-in
+      settings.extensions                        # 显式本地路径
+    package-manager.ts:resolveExtensionSources   # CLI -e / --extension；本次临时
+    loadFinalExtensionSet
+      extensions/loader.ts:loadExtensionsCached
+        loadExtensionModule                      # jiti 执行 *.ts
+        createExtensionAPI                       # factory(pi) 写进 Extension
+          pi.registerTool / on / registerCommand
+        runtime.refreshTools = () => {}          # 加载时还没有 session，刷新是空操作
+        registerProvider 先排队 pending*
+
+  extensions/loader.ts:discoverAndLoadExtensions # 测试 / SDK 助手，Interactive 不用
+    只扫两个 drop-in 目录 + 显式路径
+    不读 settings.packages
+```
+
+```text
+function flow（_buildRuntime · 文件 → 函数）
+  # 全在 agent-session.ts；不扫目录、不再跑 factory
+  谁调用:
+    构造: _buildRuntime({ activeToolNames: initialActive, includeAllExtensionTools: true })
+    reload: emitSessionShutdownEvent             # extensions/runner.ts
+            → resource-loader.ts:reload
+            → _buildRuntime({ 当前名单, 旧 flagValues, includeAllExtensionTools: true })
+
+  AgentSession._buildRuntime:
+    1. tools/index.ts:createAllToolDefinitions(cwd)   # 7 个名字都有定义；默认启用另说
+       或 _baseToolsOverride 从 SDK 工具生成定义
+       → _baseToolDefinitions
+    2. resource-loader.ts:getExtensions()
+       可选：把 reload 前的 flagValues 写回 runtime
+    3. new ExtensionRunner(...)                  # extensions/runner.ts
+       extensionRunnerRef.current = runner       # Agent.onPayload / transformContext 用
+    4. _bindExtensionCore(runner)
+         runner.bindCore:                        # extensions/runner.ts:bindCore
+           refreshTools    → _refreshToolRegistry
+           setActiveTools  → setActiveToolsByName
+           getActiveTools / getAllTools / getCommands
+           sendMessage / sendUserMessage / appendEntry / setSessionName / ...
+           compact / getSystemPrompt / abort / shutdown
+           冲掉 pendingProviderRegistrations
+             → model-runtime.ts:registerProvider
+    5. _applyExtensionBindings(runner)
+         runner.setUIContext / bindCommandContext / onError
+         构造时 UI 往往还没有；后面 bindExtensions() 再绑一次
+    6. _refreshToolRegistry({ activeToolNames, includeAllExtensionTools })
+         builtin = _baseToolDefinitions
+         ext     = runner.getAllRegisteredTools()
+         custom  = options.customTools
+         wrapRegisteredTools                     # extensions/wrapper.ts
+         合并进 _toolRegistry                    # 扩展同名覆盖内置
+         --tools 有白名单: 内置和扩展都要写进去才启用
+         无 --tools: 默认 4 个 + 全部扩展工具
+         setActiveToolsByName:
+           agent.state.tools = 名单里能在表里找到的
+           _rebuildSystemPrompt                  # agent-session.ts
+
+  之后（不在 _buildRuntime 里）:
+    interactive-mode.ts:bindCurrentSessionExtensions
+      AgentSession.bindExtensions
+        _applyExtensionBindings
+        runner.emit(session_start)
+        extendResourcesFromExtensions
+    扩展后来 registerTool → runtime.refreshTools → 再走一遍 _refreshToolRegistry
+
+  斜杠命令（不进循环）:
+    agent-session.ts:prompt
+      _tryExecuteExtensionCommand
+        runner.getCommand → command.handler      # Core 看不见
 ```
 
 ```mermaid
 %%{init: {"theme": "dark", "flowchart": {"curve": "linear", "rankSpacing": 28, "nodeSpacing": 24, "padding": 12, "useMaxWidth": false, "htmlLabels": true}, "themeVariables": {"fontSize": "22px", "background": "#000000", "lineColor": "#CBD5E1", "edgeLabelBackground": "#111111"}, "themeCSS": ".nodeLabel,.label,span{font-size:22px!important}"}}%%
 flowchart TB
-    DISC["扫项目 / 用户 / CLI"] --> LOAD["加载 TS"]
-    LOAD --> BIND["绑到当前 session"]
+    DISC["目录、package、CLI"] --> LOADTS["加载 TS"]
+    LOADTS --> BIND["buildRuntime 绑 session"]
     BIND --> WHAT{"注册了什么?"}
-    WHAT -->|工具| T["写进工具表"]
-    WHAT -->|斜杠命令| C["就地执行，不进循环"]
-    WHAT -->|tool_call| B["工具前拦截"]
+    WHAT -->|工具| TBL["写进工具表"]
+    WHAT -->|斜杠命令| CMD["就地执行，不进循环"]
+    WHAT -->|钩子| HOOK["工具前拦截"]
 
     classDef start fill:#BFDBFE,stroke:#93C5FD,color:#1E3A8A,font-size:22px
     classDef step fill:#A5F3FC,stroke:#67E8F9,color:#155E75,font-size:22px
@@ -183,11 +273,11 @@ flowchart TB
     classDef bad fill:#FBCFE8,stroke:#F9A8D4,color:#831843,font-size:22px
 
     class DISC start
-    class LOAD,BIND step
+    class LOADTS,BIND step
     class WHAT dec
-    class T prod
-    class C ok
-    class B bad
+    class TBL prod
+    class CMD ok
+    class HOOK bad
 ```
 
 | 钩子 | 典型用途 |
@@ -199,8 +289,32 @@ flowchart TB
 | `registerProvider` | 公司代理、本地模型 |
 | `ui.confirm` | 权限弹窗（Core 不内置） |
 
-`pi -ne` 跳过扩展。换 session / 重载之后，旧的 `pi` 上下文作废，后续工作放到 `withSession` 回调里。
+`pi -ne` 跳过目录和 package，仍加载 `-e`。换 session / 重载之后，旧的 `pi` 上下文作废，后续工作放到 `withSession` 回调里。
 
 官方例子在 `packages/coding-agent/examples/extensions/`：`tools.ts`、`commands.ts`、`event-bus.ts`、`question.ts`、`session-name.ts`、`custom-provider-anthropic/`。
 
-读源码：`tools/index.ts` → `sdk.ts` 默认工具 → `extensions/types.ts` → `loader.ts` / `runner.ts` → `docs/extensions.md` → 一个 example。
+读源码（文件 → 函数）：
+
+```text
+cli.ts:main
+  → cli/args.ts:parseArgs
+  → main.ts:main / buildSessionOptions
+  → agent-session-services.ts:createAgentSessionServices
+      resource-loader.ts:reload
+        package-manager.ts:resolve
+        extensions/loader.ts:loadExtensionsCached → createExtensionAPI
+  → sdk.ts:createAgentSession
+      tools/index.ts:createAllToolDefinitions     # 定义；启用名单在 sdk 里算
+      new Agent                                   # packages/agent/src/agent.ts
+      agent-session.ts 构造
+        _installAgentToolHooks                    # beforeToolCall / afterToolCall
+        _installAgentNextTurnRefresh
+        _buildRuntime
+          extensions/runner.ts:bindCore
+          _refreshToolRegistry → setActiveToolsByName
+  → interactive-mode.ts:bindCurrentSessionExtensions
+      agent-session.ts:bindExtensions / prompt / _tryExecuteExtensionCommand
+  → packages/agent/src/agent-loop.ts:runLoop / executeToolCalls
+```
+
+`docs/extensions.md` / `docs/packages.md` → `packages/coding-agent/examples/extensions/`。
